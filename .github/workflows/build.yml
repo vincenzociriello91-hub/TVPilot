@@ -1,0 +1,70 @@
+name: Build TVPilot
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Chiave di firma
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/tvpilot.jks"
+            echo "KEYSTORE_PATH=$RUNNER_TEMP/tvpilot.jks" >> "$GITHUB_ENV"
+          fi
+
+      - name: Test e compilazione
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: |
+          set -o pipefail
+          gradle testDebugUnitTest assembleRelease --no-daemon 2>&1 | tee build.log
+
+      # Se la build fallisce, il registro finisce nel ramo log-build: Claude lo legge e corregge
+      - name: Salva il registro degli errori
+        if: failure()
+        run: |
+          grep -E "^e: |error:|FAILED|What went wrong|Could not|Exception" -A3 build.log | head -300 > errori.txt || true
+          tail -150 build.log >> errori.txt
+          git config user.name "build-bot"
+          git config user.email "build-bot@users.noreply.github.com"
+          git checkout --orphan log-build
+          git rm -rf --cached . > /dev/null
+          git add -f errori.txt
+          git commit -m "Registro build ${GITHUB_SHA::7}"
+          git push -f origin log-build
+
+      - name: Pubblica la Release (solo se la versione è nuova)
+        # Senza la chiave vera l'APK non si installerebbe sopra le versioni precedenti: niente Release
+        if: env.KEYSTORE_PATH != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CODE=$(grep -oP 'versionCode = \K\d+' app/build.gradle.kts)
+          NAME=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          if gh release view "v$CODE" >/dev/null 2>&1; then
+            echo "Release v$CODE già presente"
+            exit 0
+          fi
+          cp app/build/outputs/apk/release/app-release.apk TVPilot.apk
+          awk 'NR>1 && /^Versione /{exit} {print}' app/src/main/assets/CHANGELOG.md > notes.txt
+          gh release create "v$CODE" TVPilot.apk --title "TVPilot $NAME" --notes-file notes.txt

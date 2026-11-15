@@ -1,0 +1,303 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
+package it.vincenzo.tvpilot.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.filled.DesktopAccessDisabled
+import androidx.compose.material.icons.filled.Dialpad
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mouse
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import it.vincenzo.tvpilot.core.Prefs
+import it.vincenzo.tvpilot.tv.Tv
+import it.vincenzo.tvpilot.tv.WebOsClient
+import it.vincenzo.tvpilot.tv.Wol
+import kotlinx.coroutines.delay
+
+@Composable
+fun RemoteScreen() {
+    val ctx = LocalContext.current
+    val state by Tv.client.stato.collectAsState()
+    val haptic = LocalHapticFeedback.current
+    var mode by remember { mutableIntStateOf(0) } // 0 tasti, 1 touchpad, 2 tastiera
+    var showNumbers by remember { mutableStateOf(false) }
+    var volume by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+
+    fun press(name: String) {
+        if (Prefs.haptics(ctx)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        tvAction("Tasto") { Tv.client.button(name) }
+    }
+
+    fun refreshVolume() = tvAction("Volume") { volume = Tv.volume() }
+
+    LaunchedEffect(state) {
+        while (state == WebOsClient.State.CONNECTED) {
+            runCatching { volume = Tv.volume() }
+            delay(5000)
+        }
+    }
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        if (state != WebOsClient.State.CONNECTED) ConnectCard()
+
+        // accensione / spegnimento
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            FilledTonalButton(onClick = {
+                val mac = Prefs.mac(ctx)
+                if (mac == null) UiBus.show("Collega la TV almeno una volta da accesa: l'app salva il suo indirizzo per accenderla.")
+                else tvAction("Accensione", "Segnale di accensione inviato") { Wol.wake(mac, Prefs.lastHost(ctx)) }
+            }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Filled.PowerSettingsNew, null, tint = Color(0xFF34A853)); Spacer(Modifier.width(6.dp)); Text("Accendi")
+            }
+            FilledTonalButton(onClick = { tvAction("Spegnimento", "TV spenta") { Tv.powerOff() } }, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Filled.PowerSettingsNew, null, tint = Color(0xFFD93025)); Spacer(Modifier.width(6.dp)); Text("Spegni")
+            }
+            FilledTonalIconButton(onClick = { tvAction("Schermo", "Schermo spento: l'audio continua. Premi un tasto per riaccenderlo") { Tv.screenOff() } }) {
+                Icon(Icons.Filled.DesktopAccessDisabled, "Spegni solo lo schermo")
+            }
+        }
+
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf("Tasti" to Icons.Filled.Dialpad, "Touchpad" to Icons.Filled.Mouse, "Tastiera" to Icons.Filled.Keyboard)
+                .forEachIndexed { i, (label, icon) ->
+                    SegmentedButton(
+                        selected = mode == i, onClick = { mode = i },
+                        shape = SegmentedButtonDefaults.itemShape(i, 3),
+                        icon = { Icon(icon, null, Modifier.size(18.dp)) },
+                    ) { Text(label) }
+                }
+        }
+
+        when (mode) {
+            0 -> DPad(::press)
+            1 -> Touchpad()
+            else -> KeyboardPanel()
+        }
+
+        // tasti di sistema
+        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+            RoundKey(Icons.AutoMirrored.Filled.ArrowBack, "Indietro") { press("BACK") }
+            RoundKey(Icons.Filled.Home, "Home") { press("HOME") }
+            RoundKey(Icons.Filled.Settings, "Impostazioni rapide") { press("QMENU") }
+            RoundKey(Icons.Filled.Menu, "Menu") { press("MENU") }
+            RoundKey(Icons.Filled.Info, "Info") { press("INFO") }
+        }
+
+        // volume e canali
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Rocker("VOL", volume?.let { if (it.second) "muto" else "${it.first}" }, Modifier.weight(1f),
+                onUp = { tvAction("Volume") { Tv.volumeUp(); refreshVolume() } },
+                onDown = { tvAction("Volume") { Tv.volumeDown(); refreshVolume() } })
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                RoundKey(Icons.AutoMirrored.Filled.VolumeOff, "Muto") {
+                    tvAction("Muto") { Tv.setMute(!(volume?.second ?: false)); refreshVolume() }
+                }
+                RoundKey(Icons.Filled.Dialpad, "Numeri") { showNumbers = !showNumbers }
+            }
+            Rocker("CH", null, Modifier.weight(1f),
+                onUp = { tvAction("Canale") { Tv.channelUp() } },
+                onDown = { tvAction("Canale") { Tv.channelDown() } })
+        }
+
+        if (showNumbers) NumberPad(::press)
+
+        // multimedia
+        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+            RoundKey(Icons.Filled.FastRewind, "Indietro veloce") { press("REWIND") }
+            RoundKey(Icons.Filled.PlayArrow, "Play") { tvAction("Play") { Tv.play() } }
+            RoundKey(Icons.Filled.Pause, "Pausa") { tvAction("Pausa") { Tv.pause() } }
+            RoundKey(Icons.Filled.Stop, "Stop") { press("STOP") }
+            RoundKey(Icons.Filled.FastForward, "Avanti veloce") { press("FASTFORWARD") }
+        }
+
+        // tasti colorati
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            listOf("RED" to Color(0xFFD93025), "GREEN" to Color(0xFF34A853), "YELLOW" to Color(0xFFF9AB00), "BLUE" to Color(0xFF1A73E8))
+                .forEach { (name, c) ->
+                    Surface(
+                        onClick = { press(name) }, shape = RoundedCornerShape(50), color = c,
+                        modifier = Modifier.weight(1f).height(36.dp),
+                    ) {}
+                }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun RoundKey(icon: ImageVector, desc: String, onClick: () -> Unit) {
+    FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(56.dp)) { Icon(icon, desc) }
+}
+
+@Composable
+private fun Rocker(label: String, value: String?, modifier: Modifier, onUp: () -> Unit, onDown: () -> Unit) {
+    Surface(shape = RoundedCornerShape(32.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = modifier) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 6.dp)) {
+            FilledIconButton(onClick = onUp, modifier = Modifier.size(56.dp)) { Icon(Icons.Filled.Add, "$label su") }
+            Text(label, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+            Text(value ?: " ", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 6.dp))
+            FilledIconButton(onClick = onDown, modifier = Modifier.size(56.dp)) { Icon(Icons.Filled.Remove, "$label giù") }
+        }
+    }
+}
+
+@Composable
+private fun DPad(press: (String) -> Unit) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(250.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            val big = Modifier.size(72.dp)
+            val colors = IconButtonDefaults.iconButtonColors()
+            Box(Modifier.align(Alignment.TopCenter)) {
+                androidx.compose.material3.IconButton(onClick = { press("UP") }, big, colors = colors) { Icon(Icons.Filled.KeyboardArrowUp, "Su", Modifier.size(44.dp)) }
+            }
+            Box(Modifier.align(Alignment.BottomCenter)) {
+                androidx.compose.material3.IconButton(onClick = { press("DOWN") }, big) { Icon(Icons.Filled.KeyboardArrowDown, "Giù", Modifier.size(44.dp)) }
+            }
+            Box(Modifier.align(Alignment.CenterStart)) {
+                androidx.compose.material3.IconButton(onClick = { press("LEFT") }, big) { Icon(Icons.Filled.KeyboardArrowLeft, "Sinistra", Modifier.size(44.dp)) }
+            }
+            Box(Modifier.align(Alignment.CenterEnd)) {
+                androidx.compose.material3.IconButton(onClick = { press("RIGHT") }, big) { Icon(Icons.Filled.KeyboardArrowRight, "Destra", Modifier.size(44.dp)) }
+            }
+            FilledIconButton(onClick = { press("ENTER") }, modifier = Modifier.size(96.dp)) {
+                Text("OK", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Touchpad() {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Surface(
+            shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.fillMaxWidth().aspectRatio(1.4f)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { tvAction("Clic") { Tv.client.click() } })
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures { change, drag ->
+                        change.consume()
+                        val dx = (drag.x * 1.4f).toInt()
+                        val dy = (drag.y * 1.4f).toInt()
+                        if (dx != 0 || dy != 0) tvAction("Puntatore") { Tv.client.move(dx, dy) }
+                    }
+                },
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("Trascina per muovere il puntatore\nTocca per fare clic", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { tvAction("Scorri") { Tv.client.scroll(-3) } }) { Text("Scorri su") }
+            TextButton(onClick = { tvAction("Scorri") { Tv.client.scroll(3) } }) { Text("Scorri giù") }
+        }
+    }
+}
+
+@Composable
+private fun KeyboardPanel() {
+    var text by remember { mutableStateOf("") }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Apri un campo di testo sulla TV (es. ricerca YouTube), poi scrivi qui.", style = MaterialTheme.typography.bodySmall)
+        OutlinedTextField(text, { text = it }, label = { Text("Testo da inviare") }, modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(onClick = { val t = text; tvAction("Testo", "Testo inviato") { Tv.insertText(t) }; text = "" }) { Text("Invia") }
+            FilledTonalIconButton(onClick = { tvAction("Cancella") { Tv.deleteChars(1) } }) { Icon(Icons.Filled.Backspace, "Cancella") }
+            FilledTonalIconButton(onClick = { tvAction("Invio") { Tv.enterKey() } }) { Icon(Icons.AutoMirrored.Filled.KeyboardReturn, "Invio") }
+        }
+    }
+}
+
+@Composable
+private fun NumberPad(press: (String) -> Unit) {
+    val rows = listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("-", "0", "LIST"))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { r ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                r.forEach { k ->
+                    FilledTonalButton(
+                        onClick = { press(if (k == "-") "DASH" else k) },
+                        modifier = Modifier.weight(1f),
+                    ) { Text(if (k == "LIST") "Lista" else k) }
+                }
+            }
+        }
+    }
+}

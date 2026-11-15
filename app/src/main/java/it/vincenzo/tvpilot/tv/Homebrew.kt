@@ -1,0 +1,63 @@
+package it.vincenzo.tvpilot.tv
+
+import it.vincenzo.tvpilot.core.Http
+import it.vincenzo.tvpilot.core.Reports
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.File
+
+/** Catalogo app della comunità webOS Homebrew (repo.webosbrew.org) */
+object Homebrew {
+    private const val BASE = "https://repo.webosbrew.org/api"
+    const val HBCHANNEL_ID = "org.webosbrew.hbchannel"
+
+    data class Package(
+        val id: String,
+        val title: String,
+        val description: String,
+        val version: String,
+        val ipkUrl: String,
+        val rootRequired: String,
+        val icon: String,
+    )
+
+    suspend fun all(): List<Package> = withContext(Dispatchers.IO) {
+        val out = mutableListOf<Package>()
+        var page = 1
+        var max = 1
+        do {
+            val url = if (page > 1) "$BASE/apps/$page.json" else "$BASE/apps.json"
+            val j = JSONObject(Http.get(url))
+            max = j.optJSONObject("paging")?.optInt("maxPage", 1) ?: 1
+            val arr = j.optJSONArray("packages")
+            if (arr != null) for (i in 0 until arr.length()) parse(arr.getJSONObject(i))?.let { out += it }
+            page++
+        } while (page <= max && page < 20)
+        Reports.log("Catalogo Homebrew: ${out.size} app")
+        out.sortedWith(compareBy<Package> { it.id != HBCHANNEL_ID }.thenBy { it.title.lowercase() })
+    }
+
+    private fun parse(p: JSONObject): Package? {
+        val manifest = p.optJSONObject("manifest")
+            ?: p.optString("manifestUrl").takeIf { it.isNotBlank() }?.let { runCatching { JSONObject(Http.get(it)) }.getOrNull() }
+            ?: return null
+        val ipk = manifest.optString("ipkUrl").takeIf { it.isNotBlank() } ?: return null
+        val root = when (val r = manifest.opt("rootRequired")) {
+            true -> "serve il root"
+            "optional" -> "meglio con root"
+            else -> if (r == null || r == false) "senza root" else r.toString()
+        }
+        return Package(
+            p.optString("id"), p.optString("title"),
+            p.optString("shortDescription").ifBlank { manifest.optString("appDescription") },
+            manifest.optString("version"), ipk, root, p.optString("iconUri"),
+        )
+    }
+
+    suspend fun download(pkg: Package, cacheDir: File): File = withContext(Dispatchers.IO) {
+        val f = File(cacheDir, "${pkg.id}.ipk")
+        Http.download(pkg.ipkUrl, f)
+        f
+    }
+}

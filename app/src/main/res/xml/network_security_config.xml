@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- La TV parla in chiaro sulla rete di casa (ws://IP:3000, chiave sviluppatore su http://IP:9991)
+     e il suo indirizzo IP non è noto in anticipo. Internet (GitHub, ricevitore rapporti, LG) si usa solo in HTTPS. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
