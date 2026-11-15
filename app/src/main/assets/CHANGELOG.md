@@ -1,3 +1,6 @@
+Versione 1.1.1 — 15/11/2026
+- Pulizia: gli interventi già applicati restano segnati come "Applicato" (con data) anche dopo aver chiuso l'app, quando la TV non permette di rileggerli; c'è il tasto Riapplica.
+
 Versione 1.1.0 — 15/11/2026
 - Mirroring dello schermo (scheda App): modo universale per qualsiasi telefono Android, che mostra lo schermo nel browser della TV, con qualità Fluido/Bilanciato/Nitido; l'audio resta sul telefono.
 - Mirroring nativo Miracast con audio per i telefoni che lo hanno (Samsung Smart View, Xiaomi, Oppo…): apre Screen Share sulla TV e la trasmissione del telefono.

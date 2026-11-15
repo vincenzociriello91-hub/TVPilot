@@ -48,7 +48,23 @@ fun CleanScreen() = NeedTv {
     var result by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
+    // interventi già applicati che la TV non lascia rileggere: si ricavano dall'ultimo backup (non ripristinato)
+    val appliedOn = remember { mutableStateMapOf<String, Long>() }
+    fun readApplied() {
+        val backups = Backups.list(ctx)
+        for (a in Cleanup.actions) {
+            val last = backups.firstOrNull { b ->
+                b.category == a.category && a.values.keys().asSequence().all { k -> b.after.opt(k)?.toString() == a.values.opt(k)?.toString() }
+            }
+            val sameKeysRestored = backups.firstOrNull { b -> b.category == a.category && b.restored && a.values.keys().asSequence().any { b.after.has(it) } }
+            if (last != null && !last.restored && last.method != "in corso" &&
+                (sameKeysRestored == null || sameKeysRestored.time < last.time)
+            ) appliedOn[a.id] = last.time else appliedOn.remove(a.id)
+        }
+    }
+
     fun readStatus() = tvAction("Lettura stato") {
+        readApplied()
         for (a in Cleanup.actions) {
             val k = a.statusKey ?: continue
             Tv.readSettings(a.category, listOf(k))?.opt(k)?.let { status[a.id] = it.toString() }
@@ -68,14 +84,23 @@ fun CleanScreen() = NeedTv {
         }
         result?.let { Notice(it, title = "Esito") }
         Cleanup.actions.forEach { a ->
-            val done = a.statusOk != null && status[a.id] == a.statusOk
-            Section(a.title, subtitle = status[a.id]?.let { "Valore attuale: $it" } ?: "Valore attuale non leggibile dalla TV") {
+            val read = status[a.id]
+            val verified = a.statusOk != null && read == a.statusOk
+            val applied = appliedOn[a.id]
+            val subtitle = when {
+                read != null -> "Valore attuale: $read"
+                applied != null -> "Applicato il " + java.text.SimpleDateFormat("dd/MM 'alle' HH:mm", java.util.Locale.ITALY)
+                    .format(java.util.Date(applied)) + " (la TV non permette di rileggerlo)"
+                else -> "Valore attuale non leggibile dalla TV"
+            }
+            Section(a.title, subtitle = subtitle) {
                 Text(a.description, style = MaterialTheme.typography.bodyMedium)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     RiskChip(a.risk)
-                    if (done) {
+                    if (verified || (read == null && applied != null)) {
                         Icon(Icons.Filled.CheckCircle, null, tint = OkGreen)
-                        Text("Già fatto", fontWeight = FontWeight.SemiBold)
+                        Text(if (verified) "Già fatto" else "Applicato", fontWeight = FontWeight.SemiBold)
+                        if (!verified) TextButton(onClick = { confirm = listOf(a) }, enabled = !busy) { Text("Riapplica") }
                     } else FilledTonalButton(onClick = { confirm = listOf(a) }, enabled = !busy) { Text("Applica") }
                 }
             }
@@ -104,6 +129,7 @@ fun CleanScreen() = NeedTv {
                             lines += (if (r.ok) "✓ " else "✗ ") + a.title + if (!r.ok) " — ${r.message}" else ""
                             if (r.ok) a.statusOk?.let { status[a.id] = it }
                         }
+                        readApplied()
                         result = lines.joinToString("\n") + "\nBackup in Download/${Backups.PUBLIC_FOLDER}"
                         busy = false
                         reportOperation("pulizia")
