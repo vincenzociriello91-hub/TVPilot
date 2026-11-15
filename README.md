@@ -29,6 +29,9 @@ L'app per orologio è sospesa: il codice resta nella cartella `wear/`, ma non vi
 GitHub Actions compila a ogni push su `main` e pubblica la Release firmata con la chiave in `firma/` (scelta voluta: repository tutto pubblico; i secret `KEYSTORE_B64`/`KEYSTORE_PASS`, se impostati, hanno la precedenza). Se la build fallisce, il registro errori va nel ramo `log-build`.
 
 ## Novità
+### 1.6.2 — 15/11/2026
+- Nome del modello della TV corretto.
+
 ### 1.6.1 — 15/11/2026
 - Corretti i tentativi di collegamento a raffica dal touchpad con la TV spenta.
 - La TV viene ritrovata da sola se cambia indirizzo IP.

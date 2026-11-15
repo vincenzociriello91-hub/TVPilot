@@ -1,3 +1,6 @@
+Versione 1.6.2 — 15/11/2026
+- La TV viene mostrata con il modello vero (es. 43LM6300PLA) invece del codice interno di webOS.
+
 Versione 1.6.1 — 15/11/2026
 - Corretto: con la TV spenta, muovere il dito sul touchpad metteva in fila decine di tentativi di collegamento, che continuavano per minuti anche ad app chiusa.
 - Dopo un tentativo di collegamento automatico non riuscito, l'app aspetta 8 secondi prima di riprovare da sola.

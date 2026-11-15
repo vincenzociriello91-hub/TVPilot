@@ -102,9 +102,14 @@ object Tv {
             }
             if (mac != null) Prefs.setMac(app, mac)
         }
+        // webOS 4.5: model_name è un codice interno (es. HE_DTV_W19R_AFAAABAA), il modello vero è in getSystemInfo
+        m["nome"]?.takeIf { it.isNotBlank() }?.let { real ->
+            m["modello"]?.let { m["codice"] = it }
+            m["modello"] = real
+        }
         info.value = m
         client.host?.let { h ->
-            val name = Prefs.savedTvs(app).firstOrNull { it.host == h }?.name?.takeIf { it != "TV LG" }
+            val name = Prefs.savedTvs(app).firstOrNull { it.host == h }?.name?.takeIf { it != "TV LG" && !it.startsWith("HE_") }
                 ?: m["modello"]?.takeIf { it.isNotBlank() } ?: "TV LG"
             Prefs.saveTv(app, h, name)
         }
