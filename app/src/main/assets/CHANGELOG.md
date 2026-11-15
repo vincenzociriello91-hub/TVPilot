@@ -1,3 +1,6 @@
+Versione 1.5.1 — 15/11/2026
+- Corretto: "Controlla aggiornamenti" poteva scaricare l'app per l'orologio invece di quella per il telefono.
+
 Versione 1.5.0 — 15/11/2026
 - Nuova grafica del telecomando (stile Pixel, proposta A): nome della TV e stato in alto, un solo pulsante di accensione, croce direzionale più grande, tasti rapidi quadrati, volume e canale in due barre con il valore al centro.
 - Touchpad, numeri, play/pausa, tasti colorati, menu e "solo schermo spento" sono nella riga "Altri tasti".

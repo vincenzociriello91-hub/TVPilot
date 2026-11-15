@@ -15,8 +15,11 @@ object Updater {
         val j = JSONObject(Http.get("https://api.github.com/repos/vincenzociriello91-hub/TVPilot/releases/latest"))
         val code = j.getString("tag_name").removePrefix("v").toIntOrNull() ?: return null
         val assets = j.getJSONArray("assets")
-        val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
-            .firstOrNull { it.getString("name").endsWith(".apk") } ?: return null
+        // solo l'APK del telefono: TVPilot-orologio.apk ha lo stesso applicationId e si installerebbe al suo posto
+        val list = (0 until assets.length()).map { assets.getJSONObject(it) }
+        val apk = list.firstOrNull { it.getString("name") == "TVPilot.apk" }
+            ?: list.firstOrNull { val n = it.getString("name").lowercase(); n.endsWith(".apk") && !n.contains("orologio") && !n.contains("wear") }
+            ?: return null
         return Release(code, j.optString("name"), j.optString("body"), apk.getString("browser_download_url"))
     }
 
