@@ -12,4 +12,5 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "TVPilot"
-include(":app", ":wear")
+// App per orologio (cartella wear/) sospesa dal 15/11/2026: per riattivarla aggiungere ":wear"
+include(":app")

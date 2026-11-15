@@ -17,8 +17,7 @@ Telecomando intelligente per smart TV **LG webOS** (pensato per la 43LM6300PLA, 
 - **Info**: firmware della TV con avviso quando cambia, apertura del controllo aggiornamenti sulla TV, aggiornamento dell'app, rapporti.
 
 ## Orologio (Pixel Watch / Wear OS)
-Nella Release c'è anche `TVPilot-orologio.apk`: telecomando al polso, volume con la corona. I comandi passano dal telefono (serve TVPilot installato e la TV collegata almeno una volta).
-Installazione come per le altre app per orologio: sull'orologio Opzioni sviluppatore → Debug ADB e Debug wireless → Accoppia nuovo dispositivo, poi dal telefono un'app di installazione ADB per Wear OS invia `TVPilot-orologio.apk`.
+L'app per orologio è sospesa: il codice resta nella cartella `wear/`, ma non viene più compilata né pubblicata.
 
 ## Come funziona
 - Collegamento SSAP via WebSocket (`wss://IP:3001`, poi `ws://IP:3000`), abbinamento confermato una volta sulla TV.

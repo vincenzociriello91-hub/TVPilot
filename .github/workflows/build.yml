@@ -71,6 +71,5 @@ jobs:
             exit 0
           fi
           cp app/build/outputs/apk/release/app-release.apk TVPilot.apk
-          cp wear/build/outputs/apk/release/wear-release.apk TVPilot-orologio.apk
           awk 'NR>1 && /^Versione /{exit} {print}' app/src/main/assets/CHANGELOG.md > notes.txt
-          gh release create "v$CODE" TVPilot.apk TVPilot-orologio.apk --title "TVPilot $NAME" --notes-file notes.txt
+          gh release create "v$CODE" TVPilot.apk --title "TVPilot $NAME" --notes-file notes.txt
