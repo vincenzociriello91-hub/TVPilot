@@ -12,4 +12,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "TVPilot"
-include(":app")
+include(":app", ":wear")

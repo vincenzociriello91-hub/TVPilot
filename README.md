@@ -16,6 +16,10 @@ Telecomando intelligente per smart TV **LG webOS** (pensato per la 43LM6300PLA, 
   - Homebrew Channel / root: SSH root, installazione e rimozione app.
 - **Info**: firmware della TV con avviso quando cambia, apertura del controllo aggiornamenti sulla TV, aggiornamento dell'app, rapporti.
 
+## Orologio (Pixel Watch / Wear OS)
+Nella Release c'è anche `TVPilot-orologio.apk`: telecomando al polso, volume con la corona. I comandi passano dal telefono (serve TVPilot installato e la TV collegata almeno una volta).
+Installazione come per le altre app per orologio: sull'orologio Opzioni sviluppatore → Debug ADB e Debug wireless → Accoppia nuovo dispositivo, poi dal telefono un'app di installazione ADB per Wear OS invia `TVPilot-orologio.apk`.
+
 ## Come funziona
 - Collegamento SSAP via WebSocket (`wss://IP:3001`, poi `ws://IP:3000`), abbinamento confermato una volta sulla TV.
 - Impostazioni interne: `settings/setSystemSettings` pubblico, altrimenti `luna://com.webos.settingsservice/setSystemSettings` tramite il trucco dell'avviso di sistema (bscpylgtv).
@@ -26,6 +30,9 @@ Telecomando intelligente per smart TV **LG webOS** (pensato per la 43LM6300PLA, 
 GitHub Actions compila a ogni push su `main` e pubblica la Release firmata con la chiave in `firma/` (scelta voluta: repository tutto pubblico; i secret `KEYSTORE_B64`/`KEYSTORE_PASS`, se impostati, hanno la precedenza). Se la build fallisce, il registro errori va nel ramo `log-build`.
 
 ## Novità
+### 1.3.0 — 15/11/2026
+- App per Pixel Watch / Wear OS.
+
 ### 1.2.0 — 15/11/2026
 - Controlli fuori dall'app (tasti volume, notifica, widget, riquadro rapido), comandi vocali, Condividi → TV, foto/video/musica via DLNA, canali, profili rapidi, più TV.
 

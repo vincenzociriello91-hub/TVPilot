@@ -1,3 +1,6 @@
+Versione 1.3.0 — 15/11/2026
+- Nuova app per Pixel Watch / Wear OS (TVPilot-orologio.apk): accendi/spegni, volume con la corona, muto, frecce e OK, indietro, Home, play/pausa, canali. I comandi passano dal telefono.
+
 Versione 1.2.0 — 15/11/2026
 - Controlli fuori dall'app: tasti volume del telefono, notifica fissa con volume, muto e accensione, widget per la schermata Home, riquadro "TV" nelle impostazioni rapide.
 - Comandi vocali in italiano: "apri YouTube", "volume 20", "canale 5", "HDMI 2", "spegni tra 30 minuti".
