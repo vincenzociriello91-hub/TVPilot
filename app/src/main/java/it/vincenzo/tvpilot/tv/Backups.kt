@@ -50,9 +50,10 @@ object Backups {
 
     private fun dir(ctx: Context) = File(ctx.filesDir, "backup").apply { mkdirs() }
 
-    fun save(ctx: Context, b: Backup): String {
+    /** publicCopy=false per il salvataggio "in corso": la copia in Download si scrive una volta sola, a modifica finita */
+    fun save(ctx: Context, b: Backup, publicCopy: Boolean = true): String {
         File(dir(ctx), "${b.id}.json").writeText(b.toJson().toString(2))
-        runCatching {
+        if (publicCopy) runCatching {
             if (Build.VERSION.SDK_INT >= 29) {
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, "${b.id}.json")
@@ -78,6 +79,13 @@ object Backups {
 
     fun delete(ctx: Context, id: String) { File(dir(ctx), "$id.json").delete() }
 
+    private val seq = java.util.concurrent.atomic.AtomicInteger(0)
+
+    /**
+     * Nome unico anche per più modifiche nello stesso secondo (la Pulizia ne fa diverse insieme):
+     * prima i backup con lo stesso secondo e la stessa categoria si sovrascrivevano e restava solo l'ultimo.
+     */
     fun newId(category: String): String =
-        "backup-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ITALY).format(Date()) + "-" + category.ifBlank { "sistema" }
+        "backup-" + SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ITALY).format(Date()) + "-" +
+            seq.incrementAndGet() + "-" + category.ifBlank { "sistema" }
 }

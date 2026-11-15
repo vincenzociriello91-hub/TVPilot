@@ -112,10 +112,11 @@ object Ssh {
         progress("Installazione in corso…")
         val params = JSONObject().put("id", "com.ares.defaultName").put("ipkUrl", remote).put("subscribe", true)
         val out = exec(s, "${luna(mode)} -n 50 luna://com.webos.appInstallService/dev/install ${q(params)}", 600_000) { o ->
-            o.contains("installed", true) || o.contains("FAILED", false) || o.contains("\"returnValue\":false")
+            // webOS scrive l'errore in minuscolo ("installFailed"): prima si aspettava fino a 10 minuti
+            o.contains("installed", true) || o.contains("failed", true) || o.contains("\"returnValue\":false")
         }
         exec(s, "rm -f $remote")
-        val ok = out.contains("installed", true) && !out.contains("FAILED")
+        val ok = out.contains("installed", true) && !out.contains("failed", true) && !out.contains("\"returnValue\":false")
         Reports.log("Installazione IPK ${local.name} (${mode.name}): ${if (ok) "OK" else "errore"}")
         return if (ok) "Installata. La trovi tra le app della TV." else "Installazione non riuscita:\n${out.takeLast(600)}"
     }

@@ -1,3 +1,10 @@
+Versione 1.6.3 — 15/11/2026
+- Corretto: più modifiche fatte insieme (es. "Pulizia consigliata") sovrascrivevano a vicenda il backup e ne restava solo l'ultimo. Ora ogni modifica ha il suo backup.
+- Ogni modifica crea una sola copia del backup in Download (prima due).
+- Ripristino più sicuro: i valori precedenti sconosciuti non vengono più mandati alla TV.
+- Installazione app (sviluppatore/Homebrew): se la TV rifiuta l'installazione l'app lo dice subito, invece di aspettare fino a 10 minuti.
+- Foto e video sulla TV: se la TV ha cambiato porta del lettore dopo una riaccensione, l'app la ritrova e riprova da sola.
+
 Versione 1.6.2 — 15/11/2026
 - La TV viene mostrata con il modello vero (es. 43LM6300PLA) invece del codice interno di webOS.
 

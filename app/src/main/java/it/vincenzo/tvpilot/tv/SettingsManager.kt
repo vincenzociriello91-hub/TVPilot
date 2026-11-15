@@ -36,7 +36,7 @@ object SettingsManager {
         }
         val id = Backups.newId(category)
         var method = ""
-        val path = Backups.save(ctx, Backups.Backup(id, System.currentTimeMillis(), category, before, newValues, allRead, "in corso", note, false))
+        val path = Backups.save(ctx, Backups.Backup(id, System.currentTimeMillis(), category, before, newValues, allRead, "in corso", note, false), publicCopy = false)
         try {
             method = write(category, newValues)
         } catch (e: Exception) {
@@ -69,10 +69,14 @@ object SettingsManager {
     }
 
     suspend fun restore(ctx: Context, b: Backups.Backup): Result = try {
-        val method = write(b.category, b.before)
+        // i valori "prima" sconosciuti sono salvati come null: mandarli alla TV come null non è sicuro, si saltano
+        val values = JSONObject()
+        b.before.keys().forEach { k -> if (!b.before.isNull(k)) values.put(k, b.before.get(k)) }
+        if (values.length() == 0) error("il backup non contiene valori precedenti noti: rimetti l'impostazione a mano sulla TV")
+        val method = write(b.category, values)
         Backups.markRestored(ctx, b)
         Reports.log("Ripristino ${b.id} con $method")
-        Result(true, "Ripristinato con $method. Valori rimessi: ${b.before}", null)
+        Result(true, "Ripristinato con $method. Valori rimessi: $values", null)
     } catch (e: Exception) {
         Reports.log("Ripristino ${b.id} non riuscito: ${e.message}")
         Result(false, "Ripristino non riuscito: ${e.message}", null)

@@ -201,14 +201,20 @@ object MediaCast {
         val srv = FileServer(app, uri, mime, size).also { it.start() }
         server = srv
         val fileUrl = "http://$ip:${srv.port}/${srv.token}/media"
-        val controlUrl = findControl(app, tvIp)
-        runCatching { soap(controlUrl, "Stop", "") }
-        try {
-            soap(controlUrl, "SetAVTransportURI", "<CurrentURI>${esc(fileUrl)}</CurrentURI><CurrentURIMetaData>${esc(didl(fileUrl, title, mime))}</CurrentURIMetaData>")
-            soap(controlUrl, "Play", "<Speed>1</Speed>")
-        } catch (e: Exception) {
-            control = null
-            throw e
+        // l'indirizzo del lettore DLNA salvato può essere vecchio (la TV cambia porta a ogni riaccensione):
+        // al primo errore lo si cerca di nuovo e si riprova una volta, invece di far riprovare a mano
+        for (attempt in 1..2) {
+            val controlUrl = findControl(app, tvIp)
+            try {
+                runCatching { soap(controlUrl, "Stop", "") }
+                soap(controlUrl, "SetAVTransportURI", "<CurrentURI>${esc(fileUrl)}</CurrentURI><CurrentURIMetaData>${esc(didl(fileUrl, title, mime))}</CurrentURIMetaData>")
+                soap(controlUrl, "Play", "<Speed>1</Speed>")
+                break
+            } catch (e: Exception) {
+                control = null
+                if (attempt == 2) throw e
+                Reports.log("DLNA: lettore non raggiungibile all'indirizzo salvato, lo cerco di nuovo")
+            }
         }
         playing.value = Playing(title, mime)
         Reports.log("DLNA: riproduzione $mime (${size / 1024} KB)")
