@@ -6,6 +6,8 @@ import it.vincenzo.tvpilot.core.Reports
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
@@ -218,41 +220,81 @@ class WebOsClient(private val ctx: Context) {
 
     // ---- tasti e puntatore (socket separato) ----
 
-    private suspend fun pointerSocket(): WebSocket {
-        pointer?.let { return it }
+    private val pointerLock = Mutex()
+
+    /**
+     * Un solo socket del puntatore alla volta (il touchpad manda decine di movimenti al secondo).
+     * Con la connessione cifrata la TV può restituire ws://IP:3000, che sui firmware recenti viene chiuso:
+     * in quel caso si usa lo stesso schema e la stessa porta del collegamento principale (wss://IP:3001).
+     */
+    private suspend fun pointerSocket(): WebSocket = pointerLock.withLock {
+        pointer?.let { return@withLock it }
         val p = request("ssap://com.webos.service.networkinput/getPointerInputSocket")
-        val path = p.getString("socketPath")
-        val opened = CompletableDeferred<Unit>()
-        val s = http.newWebSocket(Request.Builder().url(path).build(), object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) { opened.complete(Unit) }
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                if (!opened.isCompleted) opened.completeExceptionally(t)
-                if (pointer === webSocket) pointer = null
+        val original = p.getString("socketPath")
+        val secure = if (sicuro) original.replaceFirst("ws://", "wss://").replace(":3000/", ":3001/") else original
+        var last: Exception? = null
+        for (path in listOf(secure, original).distinct()) {
+            val opened = CompletableDeferred<Unit>()
+            val s = http.newWebSocket(Request.Builder().url(path).build(), object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) { opened.complete(Unit) }
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    if (!opened.isCompleted) opened.completeExceptionally(t)
+                    if (pointer === webSocket) pointer = null
+                }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    if (pointer === webSocket) pointer = null
+                }
+            })
+            try {
+                withTimeout(5_000) { opened.await() }
+                Reports.log("Puntatore aperto: ${path.substringBefore("/resources")}")
+                pointer = s
+                return@withLock s
+            } catch (e: Exception) {
+                s.cancel()
+                last = e
+                Reports.log("Puntatore non aperto su ${path.substringBefore("/resources")}: ${e.message}")
             }
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                if (pointer === webSocket) pointer = null
-            }
-        })
-        withTimeout(5_000) { opened.await() }
-        pointer = s
-        return s
+        }
+        throw SsapException("puntatore non disponibile (${last?.message})")
     }
 
-    suspend fun button(name: String) = withContext(Dispatchers.IO) {
+    /** Invia sul socket del puntatore; se era chiuso ne apre uno nuovo e riprova una volta */
+    private suspend fun pointerSend(msg: String) = withContext(Dispatchers.IO) {
+        val ok = runCatching { pointerSocket().send(msg) }.getOrDefault(false)
+        if (!ok) {
+            pointer?.cancel(); pointer = null
+            if (!pointerSocket().send(msg)) throw SsapException("puntatore non disponibile")
+        }
+    }
+
+    suspend fun button(name: String) {
         Reports.log("Tasto $name")
-        if (!pointerSocket().send("type:button\nname:$name\n\n")) { pointer = null; pointerSocket().send("type:button\nname:$name\n\n") }
+        pointerSend("type:button\nname:$name\n\n")
     }
 
-    suspend fun move(dx: Int, dy: Int) = withContext(Dispatchers.IO) {
-        pointerSocket().send("type:move\ndx:$dx\ndy:$dy\ndown:0\n\n")
+    // movimenti accumulati: al massimo un invio ogni 16 ms, così la TV non chiude il socket
+    private val pendingDx = AtomicInteger(0)
+    private val pendingDy = AtomicInteger(0)
+    private val moveFlushing = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    suspend fun move(dx: Int, dy: Int) {
+        pendingDx.addAndGet(dx); pendingDy.addAndGet(dy)
+        if (!moveFlushing.compareAndSet(false, true)) return
+        try {
+            while (true) {
+                val x = pendingDx.getAndSet(0); val y = pendingDy.getAndSet(0)
+                if (x == 0 && y == 0) break
+                pointerSend("type:move\ndx:$x\ndy:$y\ndown:0\n\n")
+                kotlinx.coroutines.delay(16)
+            }
+        } finally { moveFlushing.set(false) }
     }
 
-    suspend fun click() = withContext(Dispatchers.IO) {
+    suspend fun click() {
         Reports.log("Clic puntatore")
-        pointerSocket().send("type:click\n\n")
+        pointerSend("type:click\n\n")
     }
 
-    suspend fun scroll(dy: Int) = withContext(Dispatchers.IO) {
-        pointerSocket().send("type:scroll\ndx:0\ndy:$dy\n\n")
-    }
+    suspend fun scroll(dy: Int) = pointerSend("type:scroll\ndx:0\ndy:$dy\n\n")
 }

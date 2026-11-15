@@ -1,3 +1,6 @@
+Versione 1.0.1 — 15/11/2026
+- Touchpad e tasti: corretto l'errore "connection closed" del puntatore (stesso collegamento cifrato della TV, un solo canale alla volta, movimenti raggruppati).
+
 Versione 1.0.0 — 15/11/2026
 - Prima versione di TVPilot per la LG 43LM6300PLA (webOS 4.5), funziona da qualsiasi telefono Android sulla stessa rete Wi-Fi.
 - Telecomando completo: frecce e OK, volume, canali, numeri, tasti colorati, multimedia, touchpad con puntatore, tastiera del telefono.

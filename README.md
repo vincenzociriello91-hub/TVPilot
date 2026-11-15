@@ -25,5 +25,8 @@ Telecomando intelligente per smart TV **LG webOS** (pensato per la 43LM6300PLA, 
 GitHub Actions compila a ogni push su `main` e pubblica la Release firmata con la chiave in `firma/` (scelta voluta: repository tutto pubblico; i secret `KEYSTORE_B64`/`KEYSTORE_PASS`, se impostati, hanno la precedenza). Se la build fallisce, il registro errori va nel ramo `log-build`.
 
 ## Novità
+### 1.0.1 — 15/11/2026
+- Touchpad e tasti: corretto l'errore "connection closed" del puntatore.
+
 ### 1.0.0 — 15/11/2026
 - Prima versione: telecomando, app e ingressi, pulizia, impostazioni nascoste con backup, modalità sviluppatore LG, Homebrew/root, avvisi firmware.
