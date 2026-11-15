@@ -1,3 +1,12 @@
+Versione 1.6.0 — 15/11/2026
+- I comandi si ricollegano da soli alla TV: niente più "TV non collegata" dopo che il telefono è rimasto in tasca.
+- Accensione più veloce: l'app controlla in 1,5 secondi se la TV ha risposto, invece di tentativi da 14 secondi (prima poteva superare i 2 minuti).
+- All'apertura dell'app, se la TV è spenta, compare solo una riga ("TV spenta o non raggiungibile") e non più l'avviso rosso.
+- Un solo collegamento alla volta: app, widget, orologio e programmi orari non si chiudono più il collegamento a vicenda.
+- Messaggi di errore in italiano chiaro al posto di quelli tecnici in inglese.
+- Rapporti: chiave di cifratura propria di TVPilot, invii doppi evitati, nella cartella Download/TVPilot_report restano solo le ultime 60 copie.
+- App per l'orologio: non può più sostituire per sbaglio l'app del telefono; se aperta su un telefono scarica la versione giusta.
+
 Versione 1.5.1 — 15/11/2026
 - Corretto: "Controlla aggiornamenti" poteva scaricare l'app per l'orologio invece di quella per il telefono.
 

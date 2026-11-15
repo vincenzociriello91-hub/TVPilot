@@ -60,6 +60,22 @@ import kotlinx.coroutines.tasks.await
 class WatchActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Installata per sbaglio sul telefono: apre il download dell'app giusta invece del telecomando da polso
+        if (!packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_WATCH)) {
+            android.widget.Toast.makeText(
+                this, "Questa è la versione per orologio: scarico TVPilot per telefono", android.widget.Toast.LENGTH_LONG,
+            ).show()
+            runCatching {
+                startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://github.com/vincenzociriello91-hub/TVPilot/releases/latest/download/TVPilot.apk"),
+                    )
+                )
+            }
+            finish()
+            return
+        }
         setContent { MaterialTheme { WatchRemote() } }
     }
 }

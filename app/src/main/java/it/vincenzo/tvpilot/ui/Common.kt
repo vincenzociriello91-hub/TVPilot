@@ -53,16 +53,27 @@ object UiBus {
 fun tvAction(label: String, ok: String? = null, block: suspend () -> Unit) {
     Tv.scope.launch {
         try {
+            // il collegamento cade quando il telefono dorme o cambia rete: si ricollega da solo prima del comando
+            if (!Tv.client.connected) Tv.ensureConnected()
             block()
             if (ok != null) UiBus.show(ok)
         } catch (e: Exception) {
-            Reports.log("Azione \"$label\" non riuscita: ${e.message}")
-            UiBus.show(
-                if (!Tv.client.connected) "$label: TV non collegata"
-                else "$label: ${e.message ?: "errore"}"
-            )
+            Reports.log("Azione \"$label\" non riuscita: ${e.javaClass.simpleName}: ${e.message}")
+            UiBus.show("$label: " + friendlyError(e))
         }
     }
+}
+
+/** Errori in italiano comprensibile (prima comparivano messaggi tecnici in inglese, es. "Timed out waiting for 10000 ms") */
+fun friendlyError(e: Throwable): String = when {
+    !Tv.client.connected -> "TV non collegata. È accesa e sulla stessa rete Wi-Fi?"
+    e is kotlinx.coroutines.TimeoutCancellationException -> "la TV non ha risposto in tempo, riprova"
+    e is java.net.SocketTimeoutException -> "la TV non ha risposto in tempo, riprova"
+    e is java.io.IOException -> "collegamento interrotto, riprova"
+    e.message?.contains("401") == true || e.message?.contains("permission", true) == true ->
+        "la TV non permette questo comando"
+    e.message.isNullOrBlank() -> "errore sconosciuto"
+    else -> e.message!!
 }
 
 /** Rapporto dopo un'operazione importante, inviato subito in background */

@@ -13,8 +13,11 @@ android {
         applicationId = "it.vincenzo.tvpilot"
         minSdk = 30
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.5.1"
+        // Sempre UNO IN MENO dell'app telefono, letto da app/build.gradle.kts: se l'APK dell'orologio
+        // finisce per sbaglio sul telefono, Android lo rifiuta (sarebbe un "downgrade") invece di sostituire TVPilot.
+        val phone = rootProject.file("app/build.gradle.kts").readText()
+        versionCode = Regex("versionCode = (\\d+)").find(phone)!!.groupValues[1].toInt() - 1
+        versionName = Regex("versionName = \"([^\"]+)\"").find(phone)!!.groupValues[1]
     }
 
     val ks = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf { it.exists() }

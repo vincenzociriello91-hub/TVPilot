@@ -31,8 +31,10 @@ class TVPilotApp : Application() {
                 // ricollega da solo alla TV usata l'ultima volta
                 val host = Prefs.lastHost(this@TVPilotApp)
                 val st = Tv.client.stato.value
-                if (host != null && st != WebOsClient.State.CONNECTED && st != WebOsClient.State.CONNECTING) {
-                    Tv.scope.launch { Tv.connect(host) }
+                if (host != null && st != WebOsClient.State.CONNECTED && st != WebOsClient.State.CONNECTING &&
+                    st != WebOsClient.State.CONFIRM_ON_TV
+                ) {
+                    Tv.scope.launch { Tv.connect(host, quiet = true) }
                 }
                 Tv.scope.launch { Reports.sendQueue() }
                 if (Prefs.persistentControls(this@TVPilotApp)) it.vincenzo.tvpilot.quick.ControlService.start(this@TVPilotApp)

@@ -12,8 +12,8 @@ android {
         applicationId = "it.vincenzo.tvpilot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.5.1"
+        versionCode = 10
+        versionName = "1.6.0"
     }
 
     // Senza chiave (secret non impostati) l'APK di release esce non firmato: serve solo a verificare la build

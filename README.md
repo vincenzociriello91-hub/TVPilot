@@ -30,6 +30,11 @@ Installazione come per le altre app per orologio: sull'orologio Opzioni sviluppa
 GitHub Actions compila a ogni push su `main` e pubblica la Release firmata con la chiave in `firma/` (scelta voluta: repository tutto pubblico; i secret `KEYSTORE_B64`/`KEYSTORE_PASS`, se impostati, hanno la precedenza). Se la build fallisce, il registro errori va nel ramo `log-build`.
 
 ## Novità
+### 1.6.0 — 15/11/2026
+- Ricollegamento automatico prima di ogni comando, accensione più rapida, errori in italiano chiaro.
+- Rapporti con chiave propria e copie locali limitate a 60.
+- L'APK dell'orologio non può più sostituire l'app del telefono.
+
 ### 1.5.1 — 15/11/2026
 - Corretto l'aggiornamento dall'app che scaricava l'APK dell'orologio.
 

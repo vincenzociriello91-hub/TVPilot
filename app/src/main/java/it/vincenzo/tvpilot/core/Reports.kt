@@ -41,8 +41,8 @@ object Reports {
     const val DEFAULT_URL = "https://rapporti-vincenzo.vincenzociriello91.workers.dev"
     private const val APP = "TVPilot"
 
-    /** Stessa chiave pubblica delle altre app (AssistenteBanco): JWK RSA 3072 */
-    private const val PUB_N = "oCNcABFJ7_E4lAKCBgC2JztOZE1gOaf4dJe2VbTomIEixSa3l4v7pqoy_cOu-PuCaAUv9vdbTp1liSa2_QyB_VHulyVQiQsd3BbmSnYiUP7rFoGx69KmjLT1ko91PtRvQsN4vPRv9xZzXs3uf7ED1-6eRoM1GiNDHPB8UM9xK-TKpPWDlMyktQdBemPp00vYZexgQvt3pMHfYif0z_jvA7WfZLDxfaCzZ0RlAHtDKUsKKhZs-mvwakgLKGDZYbV7qSaDV5urtxswUHO749SidqjHJoQkIs6wZLf8RSyc6OxAMFuena7LGELwDk5B8kcqpqxx_PEbcgvNVBaNqsaBYrEhR-X6xd0kT517Dv2vBY1Yns5EplfpPa88TSw53ISMsfLxi2mS5fogax64e-yHtfh9ePsNTGNl8fCx6xblDjw3eDeNhsMmSXCPmNgqj564kLRup5XT-O3esSY8Qp1fkzNr6w72qSEp2gI8LDVbcNPqg9UJOijU0bqN60NjvxWh"
+    /** Chiave pubblica propria di TVPilot (dalla 1.6.0): la privata è su Drive, TVPILOT_RAPPORTI_CHIAVE.pem */
+    private const val PUB_N = "kprvn66OmJUcc7ZJedi5dNPjlSwJAJB3Q69AH-zeHoRw86alwQNCoS9T7kCYQqaVi6b_qBUeiUR4b_JOIuWfNBrQpRpQTNCsBsaN4muDCGZEyvYnj6G7fmE5rWnlDovNWqlGqARPUD-OUGrGMamJqaka9j1mPaakQpIv2okK0ihmlClB6zd4ANDFQn8FFS08vXpiSk_ld55xIcadfWLIhBCDq1eyXnG3_W1Hn455h6l-wSIIDtpHXUunZ-umTFHc2bjxgBA1QxZLZ7GvdQj-xoHTPnmz1n-KGXensWnLGHhcywSg9aAx-xwYAVlR1PmzpfLVG0cy43RRXKS8169xKwNb_HFIUYpKj1iaVA8vRi0RqBw4LHKwRv_HewckMrAPK24faSfCIiFvucVZ0_2_LCj3HwV6fZ6Yh6DTyxIADuOD0zMjgir5n5oFd6D9dMTR5yXbhl09k_BZGMRoc3-m4CQYuM8rucoYtlqwdB9SB8x7FyA_zvHc9p6xo2sTffJN"
     private const val PUB_E = "AQAB"
 
     private val events = mutableListOf<Pair<Long, String>>()
@@ -145,8 +145,25 @@ object Reports {
             }
             val uri = if (Build.VERSION.SDK_INT >= 29) ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) else null
             if (uri != null) ctx.contentResolver.openOutputStream(uri)?.use { it.write(json.toString(2).toByteArray()) }
+            pruneLocal(ctx)
         }
         runCatching { File(queueDir(ctx), "$stamp-$reason.json").writeText(encrypt(json.toString()).toString()) }
+    }
+
+    /** Tiene solo le ultime 60 copie leggibili in Download/TVPilot_report (prima crescevano senza limite) */
+    private fun pruneLocal(ctx: Context, keep: Int = 60) {
+        if (Build.VERSION.SDK_INT < 29) return
+        val uris = mutableListOf<android.net.Uri>()
+        ctx.contentResolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.Downloads._ID),
+            "${MediaStore.Downloads.RELATIVE_PATH} LIKE ?",
+            arrayOf("%$FOLDER%"),
+            "${MediaStore.Downloads.DATE_ADDED} DESC",
+        )?.use { c ->
+            while (c.moveToNext()) uris += android.content.ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, c.getLong(0))
+        }
+        uris.drop(keep).forEach { runCatching { ctx.contentResolver.delete(it, null, null) } }
     }
 
     /** Cifratura compatibile con WebCrypto: AES-GCM 256 (tag in coda) + chiave AES cifrata RSA-OAEP SHA-256 */
@@ -169,7 +186,15 @@ object Reports {
     }
 
     /** Invia la coda al ricevitore (da chiamare fuori dal thread principale) */
+    private val sending = java.util.concurrent.atomic.AtomicBoolean(false)
+
     fun sendQueue() {
+        // apertura e chiusura dell'app possono chiamarla insieme: un solo invio alla volta, niente doppioni
+        if (!sending.compareAndSet(false, true)) return
+        try { sendQueueNow() } finally { sending.set(false) }
+    }
+
+    private fun sendQueueNow() {
         val ctx = app ?: return
         val files = queueDir(ctx).listFiles()?.sortedBy { it.name }?.take(40).orEmpty()
         if (files.isEmpty()) return

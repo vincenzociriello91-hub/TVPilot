@@ -27,10 +27,32 @@ object Tv {
     data class AppItem(val id: String, val title: String, val icon: String, val removable: Boolean, val system: Boolean)
     data class InputItem(val id: String, val label: String, val connected: Boolean)
 
-    suspend fun connect(ip: String): Boolean {
+    private val connectLock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Un collegamento alla volta: app, widget, orologio e programmi orari potevano partire insieme
+     * e chiudersi a vicenda il socket.
+     * quiet = ricollegamento automatico: se la TV è spenta niente avviso rosso, solo una riga.
+     */
+    suspend fun connect(ip: String, quiet: Boolean = false): Boolean = connectLock.withLock { connectNow(ip, quiet) }
+
+    private suspend fun connectNow(ip: String, quiet: Boolean = false): Boolean {
+        if (quiet && !reachable(ip)) {
+            client.stato.value = WebOsClient.State.DISCONNECTED
+            client.dettaglio.value = "TV spenta o non raggiungibile. Tocca il tasto di accensione."
+            Reports.log("TV $ip non raggiungibile (probabilmente spenta)")
+            return false
+        }
         val ok = client.connect(ip)
         if (ok) runCatching { afterConnect() }.onFailure { Reports.log("Lettura info TV non riuscita: ${it.message}") }
         return ok
+    }
+
+    /** Controllo veloce (1,5 s) delle porte della TV, senza aprire il collegamento completo */
+    suspend fun reachable(ip: String): Boolean = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        listOf(3001, 3000).any { port ->
+            runCatching { java.net.Socket().use { it.connect(java.net.InetSocketAddress(ip, port), 1500) }; true }.getOrDefault(false)
+        }
     }
 
     /** Dopo il collegamento: info TV, MAC per l'accensione, controllo firmware */
@@ -79,8 +101,6 @@ object Tv {
         Prefs.setFirmware(app, current)
     }
 
-    private val connectLock = kotlinx.coroutines.sync.Mutex()
-
     /**
      * Per widget, notifica, orologio e voce: se la TV non è collegata si ricollega da sola all'ultima usata
      * (la chiave di abbinamento è salvata, quindi niente conferma sulla TV).
@@ -89,7 +109,7 @@ object Tv {
         if (client.connected) return@withLock true
         val host = Prefs.lastHost(app) ?: return@withLock false
         if (Prefs.clientKey(app, host) == null) return@withLock false
-        connect(host)
+        connectNow(host, quiet = true)
     }
 
     /** Accende (Wake-on-LAN) e aspetta che la TV risponda */
@@ -97,11 +117,18 @@ object Tv {
         val host = Prefs.lastHost(app)
         val mac = Prefs.mac(app) ?: return false
         Wol.wake(mac, host)
-        repeat(10) {
-            kotlinx.coroutines.delay(2000)
-            if (host != null && runCatching { connect(host) }.getOrDefault(false)) return true
-            Wol.wake(mac, host)
+        if (host == null) return false
+        // prima si aspetta che la TV apra le porte (controllo da 1,5 s), poi ci si collega una volta sola:
+        // prima ogni tentativo durava fino a 14 s e l'accensione poteva superare i 2 minuti
+        repeat(15) { i ->
+            kotlinx.coroutines.delay(1500)
+            if (reachable(host)) {
+                kotlinx.coroutines.delay(1500) // il servizio SSAP parte poco dopo la rete
+                if (runCatching { connect(host) }.getOrDefault(false)) return true
+            }
+            if (i % 3 == 2) Wol.wake(mac, host)
         }
+        Reports.log("Accensione: la TV non ha risposto entro 45 s")
         return false
     }
 
