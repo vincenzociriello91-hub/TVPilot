@@ -13,8 +13,8 @@ android {
         applicationId = "it.vincenzo.tvpilot"
         minSdk = 30
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.4.0"
+        versionCode = 8
+        versionName = "1.5.0"
     }
 
     val ks = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf { it.exists() }

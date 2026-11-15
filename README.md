@@ -30,6 +30,9 @@ Installazione come per le altre app per orologio: sull'orologio Opzioni sviluppa
 GitHub Actions compila a ogni push su `main` e pubblica la Release firmata con la chiave in `firma/` (scelta voluta: repository tutto pubblico; i secret `KEYSTORE_B64`/`KEYSTORE_PASS`, se impostati, hanno la precedenza). Se la build fallisce, il registro errori va nel ramo `log-build`.
 
 ## Novità
+### 1.5.0 — 15/11/2026
+- Nuova grafica del telecomando (stile Pixel).
+
 ### 1.4.0 — 15/11/2026
 - Routine, programmi orari, limite di tempo, chiamate e messaggi sulla TV, telecomando personalizzabile, scorciatoie, backup completo, Homebrew consigliate.
 

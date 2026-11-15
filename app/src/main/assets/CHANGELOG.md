@@ -1,3 +1,7 @@
+Versione 1.5.0 — 15/11/2026
+- Nuova grafica del telecomando (stile Pixel, proposta A): nome della TV e stato in alto, un solo pulsante di accensione, croce direzionale più grande, tasti rapidi quadrati, volume e canale in due barre con il valore al centro.
+- Touchpad, numeri, play/pausa, tasti colorati, menu e "solo schermo spento" sono nella riga "Altri tasti".
+
 Versione 1.4.0 — 15/11/2026
 - Nuova scheda Funzioni con quattro sezioni: Mirroring e media, Canali e profili, Automazioni, App e ingressi.
 - Routine: più comandi in un tocco (Sera film, Partita, Notte, Gioco), modificabili e creabili.

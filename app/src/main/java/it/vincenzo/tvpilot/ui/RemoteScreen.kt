@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -112,97 +113,132 @@ fun RemoteScreen() {
         }
     }
 
+    val connected = state == WebOsClient.State.CONNECTED
+    val info by Tv.info.collectAsState()
+    var channel by remember { mutableStateOf("") }
+    var panel by remember { mutableStateOf<String?>(null) } // touchpad, tastiera, numeri, multimedia, colori, menu
+    LaunchedEffect(state) {
+        while (state == WebOsClient.State.CONNECTED) {
+            runCatching { channel = Tv.client.request("ssap://tv/getCurrentChannel", log = false).optString("channelNumber") }
+            delay(10_000)
+        }
+    }
+    fun toggle(p: String) { panel = if (panel == p) null else p }
+
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (state != WebOsClient.State.CONNECTED) ConnectCard()
-
-        // accensione / spegnimento
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            FilledTonalButton(onClick = {
-                val mac = Prefs.mac(ctx)
-                if (mac == null) UiBus.show("Collega la TV almeno una volta da accesa: l'app salva il suo indirizzo per accenderla.")
-                else tvAction("Accensione", "Segnale di accensione inviato") { Wol.wake(mac, Prefs.lastHost(ctx)) }
-            }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Filled.PowerSettingsNew, null, tint = Color(0xFF34A853)); Spacer(Modifier.width(6.dp)); Text("Accendi")
+        // intestazione: nome TV, stato, accensione
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    Prefs.savedTvs(ctx).firstOrNull { it.host == Prefs.lastHost(ctx) }?.name ?: "La tua TV",
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (connected) OkGreen else MaterialTheme.colorScheme.outline))
+                    Text(
+                        if (connected) "${info["modello"]?.takeIf { it.isNotBlank() } ?: "TV LG"} · collegata" else "non collegata",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
-            FilledTonalButton(onClick = { tvAction("Spegnimento", "TV spenta") { Tv.powerOff() } }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Filled.PowerSettingsNew, null, tint = Color(0xFFD93025)); Spacer(Modifier.width(6.dp)); Text("Spegni")
-            }
-            FilledTonalIconButton(onClick = { tvAction("Schermo", "Schermo spento: l'audio continua. Premi un tasto per riaccenderlo") { Tv.screenOff() } }) {
-                Icon(Icons.Filled.DesktopAccessDisabled, "Spegni solo lo schermo")
-            }
+            FilledIconButton(
+                onClick = {
+                    if (connected) tvAction("Spegnimento", "TV spenta") { Tv.powerOff() }
+                    else {
+                        val mac = Prefs.mac(ctx)
+                        if (mac == null) UiBus.show("Collega la TV almeno una volta da accesa: l'app salva il suo indirizzo per accenderla.")
+                        else tvAction("Accensione", "Segnale di accensione inviato") { Tv.powerOn() }
+                    }
+                },
+                modifier = Modifier.size(56.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = if (connected) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = if (connected) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
+            ) { Icon(Icons.Filled.PowerSettingsNew, if (connected) "Spegni la TV" else "Accendi la TV", Modifier.size(26.dp)) }
         }
+
+        if (!connected) ConnectCard()
 
         VoiceButton()
         FavoritesRow(favorites)
 
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("Tasti" to Icons.Filled.Dialpad, "Touchpad" to Icons.Filled.Mouse, "Tastiera" to Icons.Filled.Keyboard)
-                .forEachIndexed { i, (label, icon) ->
-                    SegmentedButton(
-                        selected = mode == i, onClick = { mode = i },
-                        shape = SegmentedButtonDefaults.itemShape(i, 3),
-                        icon = { Icon(icon, null, Modifier.size(18.dp)) },
-                    ) { Text(label) }
-                }
+        when (panel) {
+            "touchpad" -> Touchpad()
+            "tastiera" -> KeyboardPanel()
+            else -> DPad(::press)
         }
 
-        when (mode) {
-            0 -> DPad(::press)
-            1 -> Touchpad()
-            else -> KeyboardPanel()
-        }
-
-        // tasti di sistema
-        if ("sistema" !in hidden) Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-            RoundKey(Icons.AutoMirrored.Filled.ArrowBack, "Indietro") { press("BACK") }
-            RoundKey(Icons.Filled.Home, "Home") { press("HOME") }
-            RoundKey(Icons.Filled.Settings, "Impostazioni rapide") { press("QMENU") }
-            RoundKey(Icons.Filled.Menu, "Menu") { press("MENU") }
-            RoundKey(Icons.Filled.Info, "Info") { press("INFO") }
+        // tasti rapidi
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            SquareKey(Icons.AutoMirrored.Filled.ArrowBack, "Indietro") { press("BACK") }
+            SquareKey(Icons.Filled.Home, "Home") { press("HOME") }
+            SquareKey(Icons.AutoMirrored.Filled.VolumeOff, "Muto") { tvAction("Muto") { Tv.setMute(!(volume?.second ?: false)); refreshVolume() } }
+            SquareKey(Icons.Filled.Tune, "Impostazioni rapide") { press("QMENU") }
+            SquareKey(Icons.Filled.Keyboard, "Tastiera", selected = panel == "tastiera") { toggle("tastiera") }
         }
 
         // volume e canali
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            Rocker("VOL", volume?.let { if (it.second) "muto" else "${it.first}" }, Modifier.weight(1f),
-                onUp = { tvAction("Volume") { Tv.volumeUp(); refreshVolume() } },
-                onDown = { tvAction("Volume") { Tv.volumeDown(); refreshVolume() } })
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                RoundKey(Icons.AutoMirrored.Filled.VolumeOff, "Muto") {
-                    tvAction("Muto") { Tv.setMute(!(volume?.second ?: false)); refreshVolume() }
-                }
-                RoundKey(Icons.Filled.Dialpad, "Numeri") { showNumbers = !showNumbers }
+            PillRocker("VOLUME", volume?.let { if (it.second) "muto" else "${it.first}" } ?: "–", primary = true, modifier = Modifier.weight(1f),
+                onDown = { tvAction("Volume") { Tv.volumeDown(); refreshVolume() } },
+                onUp = { tvAction("Volume") { Tv.volumeUp(); refreshVolume() } })
+            PillRocker("CANALE", channel.ifBlank { "–" }, primary = false, modifier = Modifier.weight(1f),
+                onDown = { tvAction("Canale") { Tv.channelDown() } },
+                onUp = { tvAction("Canale") { Tv.channelUp() } })
+        }
+
+        // altri tasti, su richiesta
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val chips = buildList {
+                add("touchpad" to "Touchpad")
+                add("numeri" to "Numeri")
+                if ("multimedia" !in hidden) add("multimedia" to "Play/pausa")
+                if ("colori" !in hidden) add("colori" to "Tasti colorati")
+                if ("sistema" !in hidden) add("menu" to "Menu e info")
+                add("schermo" to "Solo schermo off")
             }
-            Rocker("CH", null, Modifier.weight(1f),
-                onUp = { tvAction("Canale") { Tv.channelUp() } },
-                onDown = { tvAction("Canale") { Tv.channelDown() } })
+            items(chips.size) { i ->
+                val (key, label) = chips[i]
+                androidx.compose.material3.FilterChip(
+                    selected = panel == key,
+                    onClick = {
+                        if (key == "schermo") tvAction("Schermo", "Schermo spento: l'audio continua. Premi un tasto per riaccenderlo") { Tv.screenOff() }
+                        else toggle(key)
+                    },
+                    label = { Text(label) },
+                )
+            }
         }
 
-        if (showNumbers) NumberPad(::press)
-
-        // multimedia
-        if ("multimedia" !in hidden) Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-            RoundKey(Icons.Filled.FastRewind, "Indietro veloce") { press("REWIND") }
-            RoundKey(Icons.Filled.PlayArrow, "Play") { tvAction("Play") { Tv.play() } }
-            RoundKey(Icons.Filled.Pause, "Pausa") { tvAction("Pausa") { Tv.pause() } }
-            RoundKey(Icons.Filled.Stop, "Stop") { press("STOP") }
-            RoundKey(Icons.Filled.FastForward, "Avanti veloce") { press("FASTFORWARD") }
+        when (panel) {
+            "numeri" -> NumberPad(::press)
+            "multimedia" -> Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+                RoundKey(Icons.Filled.FastRewind, "Indietro veloce") { press("REWIND") }
+                RoundKey(Icons.Filled.PlayArrow, "Play") { tvAction("Play") { Tv.play() } }
+                RoundKey(Icons.Filled.Pause, "Pausa") { tvAction("Pausa") { Tv.pause() } }
+                RoundKey(Icons.Filled.Stop, "Stop") { press("STOP") }
+                RoundKey(Icons.Filled.FastForward, "Avanti veloce") { press("FASTFORWARD") }
+            }
+            "colori" -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                listOf("RED" to Color(0xFFD93025), "GREEN" to Color(0xFF34A853), "YELLOW" to Color(0xFFF9AB00), "BLUE" to Color(0xFF1A73E8))
+                    .forEach { (name, c) ->
+                        Surface(onClick = { press(name) }, shape = RoundedCornerShape(50), color = c, modifier = Modifier.weight(1f).height(40.dp)) {}
+                    }
+            }
+            "menu" -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { press("MENU") }) { Icon(Icons.Filled.Menu, null); Spacer(Modifier.width(6.dp)); Text("Menu") }
+                FilledTonalButton(onClick = { press("INFO") }) { Icon(Icons.Filled.Info, null); Spacer(Modifier.width(6.dp)); Text("Info") }
+                FilledTonalButton(onClick = { press("EXIT") }) { Text("Esci") }
+            }
+            else -> Unit
         }
 
-        // tasti colorati
-        if ("colori" !in hidden) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            listOf("RED" to Color(0xFFD93025), "GREEN" to Color(0xFF34A853), "YELLOW" to Color(0xFFF9AB00), "BLUE" to Color(0xFF1A73E8))
-                .forEach { (name, c) ->
-                    Surface(
-                        onClick = { press(name) }, shape = RoundedCornerShape(50), color = c,
-                        modifier = Modifier.weight(1f).height(36.dp),
-                    ) {}
-                }
-        }
         TextButton(onClick = { customizing = true }, modifier = Modifier.fillMaxWidth()) { Text("Personalizza il telecomando") }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
     }
 
     if (customizing) CustomizeDialog(
@@ -295,6 +331,35 @@ private fun VoiceButton() {
     }
 }
 
+/** Tasto quadrato arrotondato (stile A) */
+@Composable
+private fun SquareKey(icon: ImageVector, desc: String, selected: Boolean = false, onClick: () -> Unit) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = Modifier.size(58.dp),
+        shape = RoundedCornerShape(18.dp),
+        colors = if (selected) IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
+        ) else IconButtonDefaults.filledTonalIconButtonColors(),
+    ) { Icon(icon, desc) }
+}
+
+/** Volume / canale: pillola orizzontale con − valore + */
+@Composable
+private fun PillRocker(label: String, value: String, primary: Boolean, modifier: Modifier, onDown: () -> Unit, onUp: () -> Unit) {
+    val colors = if (primary) IconButtonDefaults.filledIconButtonColors() else IconButtonDefaults.filledTonalIconButtonColors()
+    Surface(shape = RoundedCornerShape(36.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = modifier.height(68.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.padding(horizontal = 7.dp)) {
+            FilledIconButton(onClick = onDown, modifier = Modifier.size(54.dp), colors = colors) { Icon(Icons.Filled.Remove, "$label giù") }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            FilledIconButton(onClick = onUp, modifier = Modifier.size(54.dp), colors = colors) { Icon(Icons.Filled.Add, "$label su") }
+        }
+    }
+}
+
 @Composable
 private fun RoundKey(icon: ImageVector, desc: String, onClick: () -> Unit) {
     FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(56.dp)) { Icon(icon, desc) }
@@ -316,7 +381,7 @@ private fun Rocker(label: String, value: String?, modifier: Modifier, onUp: () -
 private fun DPad(press: (String) -> Unit) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Box(
-            Modifier.size(250.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+            Modifier.size(252.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
             contentAlignment = Alignment.Center,
         ) {
             val big = Modifier.size(72.dp)
@@ -333,7 +398,7 @@ private fun DPad(press: (String) -> Unit) {
             Box(Modifier.align(Alignment.CenterEnd)) {
                 androidx.compose.material3.IconButton(onClick = { press("RIGHT") }, big) { Icon(Icons.Filled.KeyboardArrowRight, "Destra", Modifier.size(44.dp)) }
             }
-            FilledIconButton(onClick = { press("ENTER") }, modifier = Modifier.size(96.dp)) {
+            FilledIconButton(onClick = { press("ENTER") }, modifier = Modifier.size(106.dp)) {
                 Text("OK", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
         }
