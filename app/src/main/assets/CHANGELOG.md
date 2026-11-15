@@ -1,3 +1,7 @@
+Versione 1.1.0 — 15/11/2026
+- Mirroring dello schermo (scheda App): modo universale per qualsiasi telefono Android, che mostra lo schermo nel browser della TV, con qualità Fluido/Bilanciato/Nitido; l'audio resta sul telefono.
+- Mirroring nativo Miracast con audio per i telefoni che lo hanno (Samsung Smart View, Xiaomi, Oppo…): apre Screen Share sulla TV e la trasmissione del telefono.
+
 Versione 1.0.1 — 15/11/2026
 - Touchpad e tasti: corretto l'errore "connection closed" del puntatore (stesso collegamento cifrato della TV, un solo canale alla volta, movimenti raggruppati).
 
