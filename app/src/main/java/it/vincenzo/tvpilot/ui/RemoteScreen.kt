@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -80,6 +81,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import it.vincenzo.tvpilot.core.Prefs
 import it.vincenzo.tvpilot.tv.Tv
+import it.vincenzo.tvpilot.tv.Voice
 import it.vincenzo.tvpilot.tv.WebOsClient
 import it.vincenzo.tvpilot.tv.Wol
 import kotlinx.coroutines.delay
@@ -129,6 +131,8 @@ fun RemoteScreen() {
                 Icon(Icons.Filled.DesktopAccessDisabled, "Spegni solo lo schermo")
             }
         }
+
+        VoiceButton()
 
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             listOf("Tasti" to Icons.Filled.Dialpad, "Touchpad" to Icons.Filled.Mouse, "Tastiera" to Icons.Filled.Keyboard)
@@ -194,6 +198,35 @@ fun RemoteScreen() {
                 }
         }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** Microfono: riconoscimento vocale del telefono (qualsiasi Android con Google o servizio vocale) */
+@Composable
+private fun VoiceButton() {
+    var heard by remember { mutableStateOf<String?>(null) }
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { r ->
+        val text = r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (text != null) {
+            val cmd = Voice.parse(text)
+            heard = "\"$text\""
+            tvAction("Voce") { UiBus.show(Voice.execute(cmd)) }
+        }
+    }
+    FilledTonalButton(
+        onClick = {
+            val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "it-IT")
+                .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Es. \"apri YouTube\", \"volume 20\", \"spegni tra 30 minuti\"")
+            runCatching { launcher.launch(i) }.onFailure { UiBus.show("Riconoscimento vocale non disponibile su questo telefono") }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(Icons.Filled.Mic, null); Spacer(Modifier.width(8.dp))
+        Text(heard?.let { "Ultimo comando: $it" } ?: "Comando vocale")
     }
 }
 

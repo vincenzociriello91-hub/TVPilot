@@ -17,9 +17,45 @@ object Prefs {
     fun setClientKey(ctx: Context, host: String, key: String) = p(ctx).edit().putString("key_$host", key).apply()
     fun forgetKey(ctx: Context, host: String) = p(ctx).edit().remove("key_$host").apply()
 
-    /** Indirizzo MAC per accendere la TV dal telefono (Wake-on-LAN) */
-    fun mac(ctx: Context): String? = p(ctx).getString("mac", null)
-    fun setMac(ctx: Context, mac: String) = p(ctx).edit().putString("mac", mac).apply()
+    /** Indirizzo MAC per accendere la TV dal telefono (Wake-on-LAN), uno per TV */
+    fun mac(ctx: Context, host: String? = lastHost(ctx)): String? =
+        host?.let { p(ctx).getString("mac_$it", null) } ?: p(ctx).getString("mac", null)
+    fun setMac(ctx: Context, mac: String, host: String? = lastHost(ctx)) {
+        val e = p(ctx).edit().putString("mac", mac)
+        if (host != null) e.putString("mac_$host", mac)
+        e.apply()
+    }
+
+    // ---- più TV salvate ----
+    data class SavedTv(val host: String, val name: String)
+
+    fun savedTvs(ctx: Context): List<SavedTv> {
+        val arr = runCatching { org.json.JSONArray(p(ctx).getString("tv_salvate", "[]")) }.getOrDefault(org.json.JSONArray())
+        val list = (0 until arr.length()).mapNotNull { i ->
+            arr.optJSONObject(i)?.let { SavedTv(it.optString("host"), it.optString("nome", "TV LG")) }
+        }.filter { it.host.isNotBlank() }
+        val last = lastHost(ctx)
+        return if (last != null && list.none { it.host == last }) list + SavedTv(last, tvName(ctx) ?: "TV LG") else list
+    }
+
+    fun saveTv(ctx: Context, host: String, name: String) {
+        val list = savedTvs(ctx).filter { it.host != host } + SavedTv(host, name)
+        val arr = org.json.JSONArray()
+        list.forEach { arr.put(org.json.JSONObject().put("host", it.host).put("nome", it.name)) }
+        p(ctx).edit().putString("tv_salvate", arr.toString()).apply()
+    }
+
+    fun removeTv(ctx: Context, host: String) {
+        val arr = org.json.JSONArray()
+        savedTvs(ctx).filter { it.host != host }.forEach { arr.put(org.json.JSONObject().put("host", it.host).put("nome", it.name)) }
+        p(ctx).edit().putString("tv_salvate", arr.toString()).remove("key_$host").apply()
+    }
+
+    /** Controlli sempre disponibili: notifica fissa e tasti volume del telefono */
+    fun persistentControls(ctx: Context): Boolean = p(ctx).getBoolean("controlli_fissi", false)
+    fun setPersistentControls(ctx: Context, v: Boolean) = p(ctx).edit().putBoolean("controlli_fissi", v).apply()
+    fun volumeKeys(ctx: Context): Boolean = p(ctx).getBoolean("tasti_volume", true)
+    fun setVolumeKeys(ctx: Context, v: Boolean) = p(ctx).edit().putBoolean("tasti_volume", v).apply()
 
     /** Ultima versione firmware vista: se cambia, l'app avvisa che la TV si è aggiornata */
     fun firmware(ctx: Context): String? = p(ctx).getString("firmware", null)

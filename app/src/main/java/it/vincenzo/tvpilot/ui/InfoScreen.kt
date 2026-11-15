@@ -36,6 +36,7 @@ import it.vincenzo.tvpilot.BuildConfig
 import it.vincenzo.tvpilot.core.Prefs
 import it.vincenzo.tvpilot.core.Reports
 import it.vincenzo.tvpilot.core.Updater
+import it.vincenzo.tvpilot.quick.ControlService
 import it.vincenzo.tvpilot.tv.Risk
 import it.vincenzo.tvpilot.tv.Tv
 import it.vincenzo.tvpilot.tv.WebOsClient
@@ -121,11 +122,61 @@ fun InfoScreen() {
             }) { Text("Invia rapporto ora") }
         }
 
+        Section("Le tue TV", Icons.Filled.Tv, subtitle = "Passa da una TV all'altra") {
+            var tvs by remember { mutableStateOf(Prefs.savedTvs(ctx)) }
+            val current = Prefs.lastHost(ctx)
+            if (tvs.isEmpty()) Text("Nessuna TV salvata: collegane una dalla scheda Telecomando.", style = MaterialTheme.typography.bodySmall)
+            tvs.forEach { t ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f)) {
+                        Text(t.name + if (t.host == current) " (in uso)" else "")
+                        Text(t.host, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (t.host != current) FilledTonalButton(onClick = {
+                        Prefs.setLastHost(ctx, t.host)
+                        Tv.scope.launch { Tv.connect(t.host) }
+                        UiBus.show("Collegamento a ${t.name}…")
+                    }) { Text("Usa") }
+                    androidx.compose.material3.TextButton(onClick = { Prefs.removeTv(ctx, t.host); tvs = Prefs.savedTvs(ctx) }) { Text("Rimuovi") }
+                }
+            }
+            Text("Per aggiungerne un'altra: scheda Telecomando → Cerca TV con l'altra TV accesa.", style = MaterialTheme.typography.bodySmall)
+        }
+
         Section("Impostazioni", Icons.Filled.Tune) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("Vibrazione sui tasti", Modifier.weight(1f))
                 Switch(haptics, { haptics = it; Prefs.setHaptics(ctx, it) })
             }
+            var volKeys by remember { mutableStateOf(Prefs.volumeKeys(ctx)) }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text("Tasti volume del telefono per la TV")
+                    Text("Con l'app aperta, oppure sempre se attivi i controlli fissi", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(volKeys, { volKeys = it; Prefs.setVolumeKeys(ctx, it) })
+            }
+            var fixed by remember { mutableStateOf(Prefs.persistentControls(ctx)) }
+            val notifPerm = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+            ) { ControlService.start(ctx) }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text("Controlli fissi nella notifica")
+                    Text("Volume, muto e accensione dalla tendina e dalla schermata di blocco", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(fixed, {
+                    fixed = it
+                    Prefs.setPersistentControls(ctx, it)
+                    if (!it) ControlService.stop(ctx)
+                    else if (android.os.Build.VERSION.SDK_INT >= 33) notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    else ControlService.start(ctx)
+                })
+            }
+            Text(
+                "Widget: tieni premuto sulla schermata Home → Widget → TVPilot. Riquadro rapido: apri le impostazioni rapide → matita → trascina \"TV\".",
+                style = MaterialTheme.typography.bodySmall,
+            )
             OutlinedTextField(
                 mac, { mac = it }, label = { Text("Indirizzo MAC della TV (per Accendi)") }, singleLine = true,
                 supportingText = { Text("Si compila da solo al primo collegamento. TV: Impostazioni → Rete → Stato") },

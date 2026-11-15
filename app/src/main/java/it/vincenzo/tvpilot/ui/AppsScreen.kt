@@ -56,6 +56,9 @@ fun AppsScreen() = NeedTv {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { MirrorCard() }
+        item { MediaCard() }
+        item { ProfilesCard() }
+        item { ChannelsCard() }
         item {
             Section("Ingressi", Icons.Filled.Input, subtitle = "HDMI, antenna, USB") {
                 if (inputs.isEmpty()) Text("Nessun ingresso letto.", style = MaterialTheme.typography.bodySmall)

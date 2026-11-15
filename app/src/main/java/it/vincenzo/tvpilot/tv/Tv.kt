@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 
 /** Punto unico per la TV: collegamento, informazioni e comandi di alto livello */
@@ -56,6 +57,11 @@ object Tv {
             if (mac != null) Prefs.setMac(app, mac)
         }
         info.value = m
+        client.host?.let { h ->
+            val name = Prefs.savedTvs(app).firstOrNull { it.host == h }?.name?.takeIf { it != "TV LG" }
+                ?: m["modello"]?.takeIf { it.isNotBlank() } ?: "TV LG"
+            Prefs.saveTv(app, h, name)
+        }
         Reports.log("TV: ${m["modello"]} firmware ${m["firmware"]} (${m["prodotto"]})")
         m["firmware"]?.takeIf { it.length > 1 }?.let { checkFirmware(it) }
     }
@@ -71,6 +77,32 @@ object Tv {
                 "Tocca \"Cerca aggiornamenti sulla TV\" nella scheda Info."
         }
         Prefs.setFirmware(app, current)
+    }
+
+    private val connectLock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Per widget, notifica, orologio e voce: se la TV non è collegata si ricollega da sola all'ultima usata
+     * (la chiave di abbinamento è salvata, quindi niente conferma sulla TV).
+     */
+    suspend fun ensureConnected(): Boolean = connectLock.withLock {
+        if (client.connected) return@withLock true
+        val host = Prefs.lastHost(app) ?: return@withLock false
+        if (Prefs.clientKey(app, host) == null) return@withLock false
+        connect(host)
+    }
+
+    /** Accende (Wake-on-LAN) e aspetta che la TV risponda */
+    suspend fun powerOn(): Boolean {
+        val host = Prefs.lastHost(app)
+        val mac = Prefs.mac(app) ?: return false
+        Wol.wake(mac, host)
+        repeat(10) {
+            kotlinx.coroutines.delay(2000)
+            if (host != null && runCatching { connect(host) }.getOrDefault(false)) return true
+            Wol.wake(mac, host)
+        }
+        return false
     }
 
     // ---- comandi ----
@@ -124,6 +156,75 @@ object Tv {
     }
 
     suspend fun switchInput(id: String) = client.ssap("tv/switchInput", JSONObject().put("inputId", id))
+
+    // ---- canali ----
+    data class Channel(val id: String, val number: String, val name: String)
+
+    suspend fun channels(): List<Channel> {
+        val arr = client.request("ssap://tv/getChannelList", timeoutMs = 20_000).optJSONArray("channelList") ?: return emptyList()
+        return (0 until arr.length()).map { arr.getJSONObject(it) }
+            .map { Channel(it.optString("channelId"), it.optString("channelNumber"), it.optString("channelName")) }
+            .sortedWith(compareBy({ it.number.substringBefore('-').toIntOrNull() ?: 9999 }, { it.number }))
+    }
+
+    suspend fun openChannel(id: String) = client.ssap("tv/openChannel", JSONObject().put("channelId", id))
+    suspend fun openChannelNumber(number: String) = client.ssap("tv/openChannel", JSONObject().put("channelNumber", number))
+
+    /** Canale attuale e programma in onda (se la TV lo fornisce) */
+    suspend fun currentProgram(): String {
+        val ch = runCatching { client.request("ssap://tv/getCurrentChannel", log = false) }.getOrNull()
+        val name = ch?.let { "${it.optString("channelNumber")} ${it.optString("channelName")}".trim() }.orEmpty()
+        val prog = runCatching {
+            val p = client.request("ssap://tv/getChannelProgramInfo", log = false)
+            p.optJSONArray("programList")?.optJSONObject(0)?.optString("programName")
+        }.getOrNull()
+        return listOfNotNull(name.ifBlank { null }, prog?.ifBlank { null }).joinToString(" · ")
+    }
+
+    // ---- profili rapidi ----
+    val PICTURE_MODES = listOf("vivid" to "Vivace", "normal" to "Standard", "eco" to "Eco", "cinema" to "Cinema",
+        "sports" to "Sport", "game" to "Gioco", "expert1" to "Esperto")
+    val SOUND_OUTPUTS = listOf("tv_speaker" to "Altoparlanti TV", "external_arc" to "HDMI ARC (soundbar)",
+        "external_optical" to "Ottico", "bt_soundbar" to "Bluetooth", "headphone" to "Cuffie con filo", "tv_external_speaker" to "TV + esterno")
+
+    suspend fun setPictureMode(mode: String) {
+        val payload = JSONObject().put("category", "picture").put("settings", JSONObject().put("pictureMode", mode))
+        try { client.ssap("settings/setSystemSettings", payload) }
+        catch (e: Exception) { client.luna("com.webos.settingsservice/setSystemSettings", payload) }
+    }
+
+    suspend fun soundOutput(): String = runCatching {
+        client.request("ssap://com.webos.service.apiadapter/audio/getSoundOutput", log = false).optString("soundOutput")
+    }.getOrDefault("")
+
+    suspend fun setSoundOutput(output: String) =
+        client.ssap("com.webos.service.apiadapter/audio/changeSoundOutput", JSONObject().put("output", output))
+
+    // ---- contenuti dal telefono ----
+    fun youtubeId(url: String): String? {
+        val patterns = listOf(
+            Regex("youtu\\.be/([A-Za-z0-9_-]{6,})"),
+            Regex("[?&]v=([A-Za-z0-9_-]{6,})"),
+            Regex("youtube\\.com/(?:shorts|live|embed)/([A-Za-z0-9_-]{6,})"),
+        )
+        return patterns.firstNotNullOfOrNull { it.find(url)?.groupValues?.get(1) }
+    }
+
+    /** Link YouTube nell'app YouTube della TV, tutto il resto nel browser della TV */
+    suspend fun openLink(url: String): String {
+        val id = youtubeId(url)
+        return if (id != null) {
+            client.ssap(
+                "system.launcher/launch",
+                JSONObject().put("id", "youtube.leanback.v4").put("contentId", id)
+                    .put("params", JSONObject().put("contentTarget", "https://www.youtube.com/tv?v=$id")),
+            )
+            "YouTube"
+        } else {
+            client.ssap("system.launcher/open", JSONObject().put("target", url))
+            "browser"
+        }
+    }
 
     /** Legge impostazioni (null se la TV non permette la lettura) */
     suspend fun readSettings(category: String, keys: List<String>): JSONObject? = runCatching {

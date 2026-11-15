@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget TVPilot: riga di tasti grandi, stile Pixel -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/w_open"
+        style="@style/WidgetKey"
+        android:text="TV" />
+
+    <TextView
+        android:id="@+id/w_power"
+        style="@style/WidgetKey"
+        android:text="⏻" />
+
+    <TextView
+        android:id="@+id/w_vol_down"
+        style="@style/WidgetKey"
+        android:text="−" />
+
+    <TextView
+        android:id="@+id/w_mute"
+        style="@style/WidgetKey"
+        android:text="🔇" />
+
+    <TextView
+        android:id="@+id/w_vol_up"
+        style="@style/WidgetKey"
+        android:text="+" />
+</LinearLayout>

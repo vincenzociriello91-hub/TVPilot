@@ -1,3 +1,12 @@
+Versione 1.2.0 — 15/11/2026
+- Controlli fuori dall'app: tasti volume del telefono, notifica fissa con volume, muto e accensione, widget per la schermata Home, riquadro "TV" nelle impostazioni rapide.
+- Comandi vocali in italiano: "apri YouTube", "volume 20", "canale 5", "HDMI 2", "spegni tra 30 minuti".
+- Condividi → "Apri sulla TV": i link YouTube si aprono nell'app YouTube della TV, gli altri nel browser.
+- Foto, video e musica del telefono sulla TV a qualità piena e con audio (DLNA), con Pausa/Riprendi/Stop.
+- Canali: elenco completo, ricerca, cambio diretto e cosa va in onda.
+- Profili rapidi: modo immagine, uscita audio (soundbar, Bluetooth…), timer di spegnimento della TV.
+- Più TV salvate: si passa dall'una all'altra in Info.
+
 Versione 1.1.1 — 15/11/2026
 - Pulizia: gli interventi già applicati restano segnati come "Applicato" (con data) anche dopo aver chiuso l'app, quando la TV non permette di rileggerli; c'è il tasto Riapplica.
 

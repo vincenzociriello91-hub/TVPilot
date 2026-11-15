@@ -26,7 +26,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import it.vincenzo.tvpilot.core.Prefs
 import it.vincenzo.tvpilot.core.Reports
+import it.vincenzo.tvpilot.tv.Tv
+import it.vincenzo.tvpilot.ui.tvAction
 import it.vincenzo.tvpilot.ui.AppsScreen
 import it.vincenzo.tvpilot.ui.CleanScreen
 import it.vincenzo.tvpilot.ui.DevScreen
@@ -36,6 +39,23 @@ import it.vincenzo.tvpilot.ui.TVPilotTheme
 import it.vincenzo.tvpilot.ui.UiBus
 
 class MainActivity : ComponentActivity() {
+    /** Con l'app aperta i tasti volume del telefono comandano la TV (se attivo nelle impostazioni) */
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val code = event.keyCode
+        if ((code == android.view.KeyEvent.KEYCODE_VOLUME_UP || code == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) &&
+            Prefs.volumeKeys(this) && Tv.client.connected
+        ) {
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                val up = code == android.view.KeyEvent.KEYCODE_VOLUME_UP
+                tvAction("Volume") {
+                    if (up) Tv.volumeUp() else Tv.volumeDown()
+                }
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

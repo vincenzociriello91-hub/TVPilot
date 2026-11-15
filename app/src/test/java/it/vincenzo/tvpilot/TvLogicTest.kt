@@ -39,6 +39,35 @@ class TvLogicTest {
         assertTrue(Discovery.searchMessage().contains("webos-second-screen"))
     }
 
+    @Test fun voice() {
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.VolumeSet(20), it.vincenzo.tvpilot.tv.Voice.parse("Volume 20"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.VolumeSet(20), it.vincenzo.tvpilot.tv.Voice.parse("volume a venti"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.VolumeUp(3), it.vincenzo.tvpilot.tv.Voice.parse("alza il volume"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.VolumeDown(5), it.vincenzo.tvpilot.tv.Voice.parse("abbassa il volume di 5"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.Sleep(30), it.vincenzo.tvpilot.tv.Voice.parse("spegni tra 30 minuti"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.Sleep(30), it.vincenzo.tvpilot.tv.Voice.parse("spegni tra mezz'ora"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.Sleep(60), it.vincenzo.tvpilot.tv.Voice.parse("spegni tra un'ora"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.PowerOff, it.vincenzo.tvpilot.tv.Voice.parse("Spegni la TV"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.Channel("5"), it.vincenzo.tvpilot.tv.Voice.parse("canale 5"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.Input(2), it.vincenzo.tvpilot.tv.Voice.parse("HDMI 2"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.OpenApp("youtube"), it.vincenzo.tvpilot.tv.Voice.parse("Apri YouTube"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.Mute, it.vincenzo.tvpilot.tv.Voice.parse("muto"))
+        assertEquals(it.vincenzo.tvpilot.tv.Voice.Command.Unmute, it.vincenzo.tvpilot.tv.Voice.parse("togli il muto"))
+        val apps = listOf(
+            it.vincenzo.tvpilot.tv.Tv.AppItem("netflix", "Netflix", "", true, false),
+            it.vincenzo.tvpilot.tv.Tv.AppItem("amazon", "Prime Video", "", true, false),
+        )
+        assertEquals("amazon", it.vincenzo.tvpilot.tv.Voice.bestApp("prime", apps)?.id)
+        assertEquals("netflix", it.vincenzo.tvpilot.tv.Voice.bestApp("netflix", apps)?.id)
+    }
+
+    @Test fun youtube() {
+        assertEquals("dQw4w9WgXcQ", it.vincenzo.tvpilot.tv.Tv.youtubeId("https://youtu.be/dQw4w9WgXcQ?si=abc"))
+        assertEquals("dQw4w9WgXcQ", it.vincenzo.tvpilot.tv.Tv.youtubeId("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10"))
+        assertEquals("abcdefghijk", it.vincenzo.tvpilot.tv.Tv.youtubeId("https://youtube.com/shorts/abcdefghijk"))
+        assertNull(it.vincenzo.tvpilot.tv.Tv.youtubeId("https://example.com"))
+    }
+
     @Test fun manifest() {
         val withKey = Manifest.registration("abc")
         assertEquals("abc", withKey.getString("client-key"))

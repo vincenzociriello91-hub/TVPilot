@@ -33,6 +33,7 @@ class TVPilotApp : Application() {
                     Tv.scope.launch { Tv.connect(host) }
                 }
                 Tv.scope.launch { Reports.sendQueue() }
+                if (Prefs.persistentControls(this@TVPilotApp)) it.vincenzo.tvpilot.quick.ControlService.start(this@TVPilotApp)
             }
 
             override fun onStop(owner: LifecycleOwner) {
