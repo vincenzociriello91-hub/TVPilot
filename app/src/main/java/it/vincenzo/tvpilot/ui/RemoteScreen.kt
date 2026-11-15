@@ -419,7 +419,8 @@ private fun Touchpad() {
                         change.consume()
                         val dx = (drag.x * 1.4f).toInt()
                         val dy = (drag.y * 1.4f).toInt()
-                        if (dx != 0 || dy != 0) tvAction("Puntatore") { Tv.client.move(dx, dy) }
+                        // i movimenti sono decine al secondo: solo con la TV già collegata, senza ricollegamento a ogni movimento
+                        if ((dx != 0 || dy != 0) && Tv.client.connected) tvAction("Puntatore", reconnect = false) { Tv.client.move(dx, dy) }
                     }
                 },
         ) {

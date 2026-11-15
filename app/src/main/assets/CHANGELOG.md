@@ -1,3 +1,8 @@
+Versione 1.6.1 — 15/11/2026
+- Corretto: con la TV spenta, muovere il dito sul touchpad metteva in fila decine di tentativi di collegamento, che continuavano per minuti anche ad app chiusa.
+- Dopo un tentativo di collegamento automatico non riuscito, l'app aspetta 8 secondi prima di riprovare da sola.
+- Se il modem dà alla TV un indirizzo IP nuovo, l'app la ritrova da sola sulla rete e sposta lì l'abbinamento, senza chiedere di nuovo la conferma sulla TV.
+
 Versione 1.6.0 — 15/11/2026
 - I comandi si ricollegano da soli alla TV: niente più "TV non collegata" dopo che il telefono è rimasto in tasca.
 - Accensione più veloce: l'app controlla in 1,5 secondi se la TV ha risposto, invece di tentativi da 14 secondi (prima poteva superare i 2 minuti).

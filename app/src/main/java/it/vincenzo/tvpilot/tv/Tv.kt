@@ -34,13 +34,37 @@ object Tv {
      * e chiudersi a vicenda il socket.
      * quiet = ricollegamento automatico: se la TV è spenta niente avviso rosso, solo una riga.
      */
-    suspend fun connect(ip: String, quiet: Boolean = false): Boolean = connectLock.withLock { connectNow(ip, quiet) }
+    suspend fun connect(ip: String, quiet: Boolean = false): Boolean = connectLock.withLock {
+        connectNow(ip, quiet) || (quiet && relocated(ip))
+    }
+
+    /** Ultimo tentativo automatico fallito: per 8 s non si riprova (evita code di tentativi, es. dal touchpad) */
+    @Volatile private var lastFail = 0L
+
+    /**
+     * La TV non risponde al vecchio indirizzo: forse il modem le ha dato un IP nuovo.
+     * Cerca le TV sulla rete; se ce n'è una sola a un altro indirizzo, sposta lì abbinamento e MAC e si collega.
+     */
+    private suspend fun relocated(old: String): Boolean {
+        val found = runCatching { Discovery.search(app, 2500) }.getOrDefault(emptyList()).filter { it.ip != old }
+        if (found.size != 1) {
+            lastFail = System.currentTimeMillis()
+            return false
+        }
+        val ip = found[0].ip
+        Prefs.clientKey(app, old)?.let { Prefs.setClientKey(app, ip, it) }
+        Prefs.mac(app, old)?.let { Prefs.setMac(app, it, ip) }
+        Prefs.setLastHost(app, ip)
+        Reports.log("La TV ha cambiato indirizzo: $old → $ip")
+        return connectNow(ip)
+    }
 
     private suspend fun connectNow(ip: String, quiet: Boolean = false): Boolean {
         if (quiet && !reachable(ip)) {
             client.stato.value = WebOsClient.State.DISCONNECTED
             client.dettaglio.value = "TV spenta o non raggiungibile. Tocca il tasto di accensione."
             Reports.log("TV $ip non raggiungibile (probabilmente spenta)")
+            lastFail = System.currentTimeMillis()
             return false
         }
         val ok = client.connect(ip)
@@ -109,7 +133,8 @@ object Tv {
         if (client.connected) return@withLock true
         val host = Prefs.lastHost(app) ?: return@withLock false
         if (Prefs.clientKey(app, host) == null) return@withLock false
-        connectNow(host, quiet = true)
+        if (System.currentTimeMillis() - lastFail < 8_000) return@withLock false
+        connectNow(host, quiet = true) || relocated(host)
     }
 
     /** Accende (Wake-on-LAN) e aspetta che la TV risponda */

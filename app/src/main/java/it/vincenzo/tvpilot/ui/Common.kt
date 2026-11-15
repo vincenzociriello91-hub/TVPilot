@@ -50,11 +50,11 @@ object UiBus {
 }
 
 /** Esegue un comando verso la TV senza bloccare la grafica; gli errori diventano un messaggio in italiano */
-fun tvAction(label: String, ok: String? = null, block: suspend () -> Unit) {
+fun tvAction(label: String, ok: String? = null, reconnect: Boolean = true, block: suspend () -> Unit) {
     Tv.scope.launch {
         try {
             // il collegamento cade quando il telefono dorme o cambia rete: si ricollega da solo prima del comando
-            if (!Tv.client.connected) Tv.ensureConnected()
+            if (reconnect && !Tv.client.connected) Tv.ensureConnected()
             block()
             if (ok != null) UiBus.show(ok)
         } catch (e: Exception) {
