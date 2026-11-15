@@ -22,7 +22,7 @@ Telecomando intelligente per smart TV **LG webOS** (pensato per la 43LM6300PLA, 
 - Rapporti cifrati (RSA-OAEP-256 + AES-256-GCM) al ricevitore `rapporti-vincenzo` → repository privato `TVPilot-rapporti`.
 
 ## Compilazione
-GitHub Actions compila a ogni push su `main`. Con i secret `KEYSTORE_B64` e `KEYSTORE_PASS` pubblica la Release firmata. Se la build fallisce, il registro errori va nel ramo `log-build`.
+GitHub Actions compila a ogni push su `main` e pubblica la Release firmata con la chiave in `firma/` (scelta voluta: repository tutto pubblico; i secret `KEYSTORE_B64`/`KEYSTORE_PASS`, se impostati, hanno la precedenza). Se la build fallisce, il registro errori va nel ramo `log-build`.
 
 ## Novità
 ### 1.0.0 — 15/11/2026

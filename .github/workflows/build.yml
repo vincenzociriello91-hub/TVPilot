@@ -23,18 +23,23 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
+      # Scelta di Vincenzo (15/11/2026): chiave di firma nel repository pubblico (cartella firma/), niente secret.
+      # Se un giorno si impostano i secret KEYSTORE_B64/KEYSTORE_PASS, hanno la precedenza.
       - name: Chiave di firma
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASS_SECRET: ${{ secrets.KEYSTORE_PASS }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/tvpilot.jks"
             echo "KEYSTORE_PATH=$RUNNER_TEMP/tvpilot.jks" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PASS=$KEYSTORE_PASS_SECRET" >> "$GITHUB_ENV"
+          elif [ -f firma/tvpilot.jks ]; then
+            echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/firma/tvpilot.jks" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PASS=$(cat firma/password.txt)" >> "$GITHUB_ENV"
           fi
 
       - name: Test e compilazione
-        env:
-          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
         run: |
           set -o pipefail
           gradle testDebugUnitTest assembleRelease --no-daemon 2>&1 | tee build.log
