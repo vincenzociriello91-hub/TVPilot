@@ -30,7 +30,7 @@ import it.vincenzo.tvpilot.core.Prefs
 import it.vincenzo.tvpilot.core.Reports
 import it.vincenzo.tvpilot.tv.Tv
 import it.vincenzo.tvpilot.ui.tvAction
-import it.vincenzo.tvpilot.ui.AppsScreen
+import it.vincenzo.tvpilot.ui.FeaturesScreen
 import it.vincenzo.tvpilot.ui.CleanScreen
 import it.vincenzo.tvpilot.ui.DevScreen
 import it.vincenzo.tvpilot.ui.InfoScreen
@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) { UiBus.messages.collect { snackbar.showSnackbar(it) } }
                 val tabs = listOf(
                     "Telecomando" to Icons.Filled.SettingsRemote,
-                    "App" to Icons.Filled.Apps,
+                    "Funzioni" to Icons.Filled.Apps,
                     "Pulizia" to Icons.Filled.CleaningServices,
                     "Sviluppatore" to Icons.Filled.DeveloperMode,
                     "Info" to Icons.Filled.Info,
@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
                     Box(Modifier.padding(padding)) {
                         when (tab) {
                             0 -> RemoteScreen()
-                            1 -> AppsScreen()
+                            1 -> FeaturesScreen()
                             2 -> CleanScreen()
                             3 -> DevScreen()
                             else -> InfoScreen()

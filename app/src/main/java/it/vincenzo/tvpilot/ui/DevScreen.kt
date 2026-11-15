@@ -65,6 +65,7 @@ import it.vincenzo.tvpilot.core.Prefs
 import it.vincenzo.tvpilot.core.Reports
 import it.vincenzo.tvpilot.tv.Backups
 import it.vincenzo.tvpilot.tv.Catalog
+import it.vincenzo.tvpilot.tv.FullBackup
 import it.vincenzo.tvpilot.tv.Homebrew
 import it.vincenzo.tvpilot.tv.Risk
 import it.vincenzo.tvpilot.tv.Risks
@@ -234,6 +235,7 @@ private fun BackupList() {
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        FullBackupSection()
         msg?.let { Notice(it, title = "Esito") }
         if (list.isEmpty()) Text("Nessun backup: non hai ancora modificato impostazioni.", style = MaterialTheme.typography.bodyMedium)
         list.forEach { b ->
@@ -259,6 +261,84 @@ private fun BackupList() {
                         Icon(Icons.Filled.Delete, null); Spacer(Modifier.width(6.dp)); Text("Elimina")
                     }
                 }
+            }
+        }
+    }
+}
+
+// ---------------- backup completo ----------------
+
+@Composable
+private fun FullBackupSection() {
+    val ctx = LocalContext.current
+    var snaps by remember { mutableStateOf(FullBackup.list(ctx)) }
+    var progress by remember { mutableStateOf<String?>(null) }
+    var diffs by remember { mutableStateOf<List<FullBackup.Diff>?>(null) }
+    var includeHigh by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<String?>(null) }
+    Section("Backup completo della TV", Icons.Filled.Backup, subtitle = "Tutte le impostazioni che la TV lascia leggere") {
+        Text(
+            "Fotografa le impostazioni della TV (richiede circa un minuto). Poi puoi confrontarle con lo stato di adesso, " +
+                "per esempio dopo un aggiornamento LG, e rimettere quelle cambiate. File in Download/${Backups.PUBLIC_FOLDER}.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        progress?.let { Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.padding(end = 8.dp)); Text(it) } }
+        result?.let { Notice(it, title = "Esito") }
+        Button(onClick = {
+            tvAction("Backup completo") {
+                progress = "Inizio…"
+                try {
+                    val s = FullBackup.create(ctx) { p -> progress = p }
+                    snaps = FullBackup.list(ctx)
+                    result = "Salvati ${s.count} valori. File: Download/${Backups.PUBLIC_FOLDER}/${s.id}.json"
+                    reportOperation("backup-completo")
+                } finally { progress = null }
+            }
+        }, enabled = progress == null && Tv.client.connected) { Text("Fai il backup completo") }
+        snaps.forEach { s ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text(java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.ITALY).format(java.util.Date(s.time)))
+                    Text("${s.count} valori · firmware ${s.firmware.ifBlank { "?" }}", style = MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick = {
+                    tvAction("Confronto") {
+                        progress = "Confronto…"
+                        try { diffs = FullBackup.compare(ctx, s) { p -> progress = p } } finally { progress = null }
+                    }
+                }, enabled = progress == null && Tv.client.connected) { Text("Confronta") }
+                IconButton(onClick = { FullBackup.delete(ctx, s.id); snaps = FullBackup.list(ctx) }) {
+                    Icon(Icons.Filled.Delete, "Elimina")
+                }
+            }
+        }
+        diffs?.let { d ->
+            HorizontalDivider()
+            if (d.isEmpty()) Text("Nessuna differenza: la TV è come nel backup.", fontWeight = FontWeight.SemiBold)
+            else {
+                Text("${d.size} impostazioni cambiate rispetto al backup", fontWeight = FontWeight.SemiBold)
+                d.take(60).forEach { x ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("${Risks.categoryName(x.category)} · ${x.key}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                            Text("prima ${Catalog.show(x.saved).take(40)} → ora ${Catalog.show(x.now).take(40)}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        RiskChip(x.risk)
+                    }
+                }
+                if (d.size > 60) Text("…e altre ${d.size - 60}", style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(includeHigh, { includeHigh = it })
+                    Text("Rimetti anche quelle pericolose")
+                }
+                FilledTonalButton(onClick = {
+                    val list = d
+                    tvAction("Ripristino completo") {
+                        result = FullBackup.restore(list, includeHigh)
+                        diffs = null
+                        reportOperation("ripristino-completo")
+                    }
+                }) { Icon(Icons.Filled.Restore, null); Spacer(Modifier.width(6.dp)); Text("Rimetti come nel backup") }
             }
         }
     }
@@ -312,7 +392,8 @@ private fun AppInstaller(mode: Ssh.Mode) {
             list.forEach { p ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("${p.title} ${p.version}", style = MaterialTheme.typography.titleSmall)
+                        Text((if (p.tip != null) "★ " else "") + "${p.title} ${p.version}", style = MaterialTheme.typography.titleSmall)
+                        if (p.tip != null) Text("Consigliata: ${p.tip}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         Text("${p.description.take(110)} · ${p.rootRequired}", style = MaterialTheme.typography.bodySmall)
                     }
                     TextButton(onClick = {

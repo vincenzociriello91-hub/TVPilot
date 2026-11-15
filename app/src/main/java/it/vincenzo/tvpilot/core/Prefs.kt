@@ -51,6 +51,14 @@ object Prefs {
         p(ctx).edit().putString("tv_salvate", arr.toString()).remove("key_$host").apply()
     }
 
+    // ---- telecomando personalizzato ----
+    /** App preferite in prima pagina: "id|titolo" */
+    fun favoriteApps(ctx: Context): List<String> = p(ctx).getString("app_preferite", "")!!.split('\n').filter { it.contains('|') }
+    fun setFavoriteApps(ctx: Context, list: List<String>) = p(ctx).edit().putString("app_preferite", list.joinToString("\n")).apply()
+    /** Sezioni nascoste del telecomando: numeri, multimedia, colori, sistema */
+    fun hiddenSections(ctx: Context): Set<String> = p(ctx).getStringSet("sezioni_nascoste", emptySet()) ?: emptySet()
+    fun setHiddenSections(ctx: Context, s: Set<String>) = p(ctx).edit().putStringSet("sezioni_nascoste", s).apply()
+
     /** Controlli sempre disponibili: notifica fissa e tasti volume del telefono */
     fun persistentControls(ctx: Context): Boolean = p(ctx).getBoolean("controlli_fissi", false)
     fun setPersistentControls(ctx: Context, v: Boolean) = p(ctx).edit().putBoolean("controlli_fissi", v).apply()

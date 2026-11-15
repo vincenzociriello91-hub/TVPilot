@@ -20,7 +20,27 @@ object Homebrew {
         val ipkUrl: String,
         val rootRequired: String,
         val icon: String,
+        /** Perché è consigliata (null se non è tra le consigliate) */
+        val tip: String? = null,
     )
+
+    /** App consigliate: parola nel titolo o nell'id → perché installarla */
+    private val RECOMMENDED = listOf(
+        "hbchannel" to "Il negozio di app Homebrew: serve per tutte le altre",
+        "youtube" to "YouTube senza pubblicità e con SponsorBlock",
+        "jellyfin" to "Guarda film e serie dal tuo PC o NAS",
+        "kodi" to "Lettore multimediale completo",
+        "moonlight" to "Gioca ai giochi del PC sulla TV (con Sunshine/GeForce)",
+        "piccap" to "Luci Ambilight dietro la TV (con Hyperion)",
+        "hyperion" to "Luci Ambilight dietro la TV",
+        "adblock" to "Blocca la pubblicità di sistema",
+        "crunchyroll" to "Crunchyroll senza pubblicità",
+    )
+
+    fun tipFor(id: String, title: String): String? {
+        val t = (id + " " + title).lowercase()
+        return RECOMMENDED.firstOrNull { t.contains(it.first) }?.second
+    }
 
     suspend fun all(): List<Package> = withContext(Dispatchers.IO) {
         val out = mutableListOf<Package>()
@@ -35,7 +55,7 @@ object Homebrew {
             page++
         } while (page <= max && page < 20)
         Reports.log("Catalogo Homebrew: ${out.size} app")
-        out.sortedWith(compareBy<Package> { it.id != HBCHANNEL_ID }.thenBy { it.title.lowercase() })
+        out.sortedWith(compareBy<Package> { it.id != HBCHANNEL_ID }.thenBy { it.tip == null }.thenBy { it.title.lowercase() })
     }
 
     private fun parse(p: JSONObject): Package? {
@@ -52,6 +72,7 @@ object Homebrew {
             p.optString("id"), p.optString("title"),
             p.optString("shortDescription").ifBlank { manifest.optString("appDescription") },
             manifest.optString("version"), ipk, root, p.optString("iconUri"),
+            tipFor(p.optString("id"), p.optString("title")),
         )
     }
 

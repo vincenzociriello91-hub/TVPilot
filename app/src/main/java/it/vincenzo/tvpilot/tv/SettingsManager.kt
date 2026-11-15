@@ -57,7 +57,7 @@ object SettingsManager {
     }
 
     /** Scrive: prima l'API pubblica (risponde con esito), poi il servizio interno (senza esito) */
-    private suspend fun write(category: String, values: JSONObject): String {
+    suspend fun write(category: String, values: JSONObject): String {
         val payload = JSONObject().put("category", category).put("settings", values)
         return try {
             Tv.client.ssap("settings/setSystemSettings", payload)

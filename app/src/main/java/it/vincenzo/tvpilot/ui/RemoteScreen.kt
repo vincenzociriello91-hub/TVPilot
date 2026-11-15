@@ -94,6 +94,9 @@ fun RemoteScreen() {
     var mode by remember { mutableIntStateOf(0) } // 0 tasti, 1 touchpad, 2 tastiera
     var showNumbers by remember { mutableStateOf(false) }
     var volume by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    var hidden by remember { mutableStateOf(Prefs.hiddenSections(ctx)) }
+    var favorites by remember { mutableStateOf(Prefs.favoriteApps(ctx)) }
+    var customizing by remember { mutableStateOf(false) }
 
     fun press(name: String) {
         if (Prefs.haptics(ctx)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -133,6 +136,7 @@ fun RemoteScreen() {
         }
 
         VoiceButton()
+        FavoritesRow(favorites)
 
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             listOf("Tasti" to Icons.Filled.Dialpad, "Touchpad" to Icons.Filled.Mouse, "Tastiera" to Icons.Filled.Keyboard)
@@ -152,7 +156,7 @@ fun RemoteScreen() {
         }
 
         // tasti di sistema
-        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+        if ("sistema" !in hidden) Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
             RoundKey(Icons.AutoMirrored.Filled.ArrowBack, "Indietro") { press("BACK") }
             RoundKey(Icons.Filled.Home, "Home") { press("HOME") }
             RoundKey(Icons.Filled.Settings, "Impostazioni rapide") { press("QMENU") }
@@ -179,7 +183,7 @@ fun RemoteScreen() {
         if (showNumbers) NumberPad(::press)
 
         // multimedia
-        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+        if ("multimedia" !in hidden) Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
             RoundKey(Icons.Filled.FastRewind, "Indietro veloce") { press("REWIND") }
             RoundKey(Icons.Filled.PlayArrow, "Play") { tvAction("Play") { Tv.play() } }
             RoundKey(Icons.Filled.Pause, "Pausa") { tvAction("Pausa") { Tv.pause() } }
@@ -188,7 +192,7 @@ fun RemoteScreen() {
         }
 
         // tasti colorati
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        if ("colori" !in hidden) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             listOf("RED" to Color(0xFFD93025), "GREEN" to Color(0xFF34A853), "YELLOW" to Color(0xFFF9AB00), "BLUE" to Color(0xFF1A73E8))
                 .forEach { (name, c) ->
                     Surface(
@@ -197,8 +201,69 @@ fun RemoteScreen() {
                     ) {}
                 }
         }
+        TextButton(onClick = { customizing = true }, modifier = Modifier.fillMaxWidth()) { Text("Personalizza il telecomando") }
         Spacer(Modifier.height(24.dp))
     }
+
+    if (customizing) CustomizeDialog(
+        hidden, favorites,
+        onDismiss = { customizing = false },
+    ) { h, f ->
+        hidden = h; favorites = f
+        Prefs.setHiddenSections(ctx, h); Prefs.setFavoriteApps(ctx, f)
+        customizing = false
+    }
+}
+
+/** App preferite: un tocco e si aprono sulla TV */
+@Composable
+private fun FavoritesRow(favorites: List<String>) {
+    if (favorites.isEmpty()) return
+    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(favorites.size) { i ->
+            val parts = favorites[i].split('|', limit = 2)
+            val id = parts[0]
+            val title = parts.getOrElse(1) { parts[0] }
+            androidx.compose.material3.AssistChip(onClick = { tvAction("Apri app", "Aperta $title") { Tv.launch(id) } }, label = { Text(title) })
+        }
+    }
+}
+
+/** Scegli le app in prima pagina e le sezioni da mostrare */
+@Composable
+private fun CustomizeDialog(hidden: Set<String>, favorites: List<String>, onDismiss: () -> Unit, onSave: (Set<String>, List<String>) -> Unit) {
+    val h = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(hidden) } }
+    val f = remember { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(favorites) } }
+    var apps by remember { mutableStateOf<List<Tv.AppItem>>(emptyList()) }
+    LaunchedEffect(Unit) { runCatching { apps = Tv.apps() } }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Personalizza") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Sezioni", fontWeight = FontWeight.SemiBold)
+                listOf("sistema" to "Tasti Indietro/Home/Menu", "multimedia" to "Tasti multimedia", "colori" to "Tasti colorati").forEach { (k, l) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Checkbox(k !in h, { on -> if (on) h.remove(k) else h.add(k) })
+                        Text(l)
+                    }
+                }
+                Text("App in prima pagina", fontWeight = FontWeight.SemiBold)
+                if (apps.isEmpty()) Text("Collega la TV per vedere le app.", style = MaterialTheme.typography.bodySmall)
+                apps.forEach { a ->
+                    val key = "${a.id}|${a.title}"
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Checkbox(f.any { it.startsWith(a.id + "|") }, { on ->
+                            if (on) f.add(key) else f.removeAll { it.startsWith(a.id + "|") }
+                        })
+                        Text(a.title)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(h.toSet(), f.toList()) }) { Text("Salva") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } },
+    )
 }
 
 /** Microfono: riconoscimento vocale del telefono (qualsiasi Android con Google o servizio vocale) */

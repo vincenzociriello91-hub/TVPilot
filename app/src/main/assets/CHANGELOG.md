@@ -1,3 +1,14 @@
+Versione 1.4.0 — 15/11/2026
+- Nuova scheda Funzioni con quattro sezioni: Mirroring e media, Canali e profili, Automazioni, App e ingressi.
+- Routine: più comandi in un tocco (Sera film, Partita, Notte, Gioco), modificabili e creabili.
+- Programmi orari: accendi, spegni o avvia una routine a un'ora e nei giorni scelti.
+- Limite di tempo: avviso sulla TV 5 minuti prima, poi spegnimento.
+- Telefono e TV insieme: pausa del video quando arriva una chiamata, chiamate e messaggi come avviso sulla TV (testo nascosto se vuoi).
+- Telecomando personalizzabile: app preferite in prima pagina e sezioni da mostrare o nascondere.
+- Scorciatoie tenendo premuta l'icona: Spegni, Accendi, Muto e le prime due routine.
+- Backup completo delle impostazioni della TV, confronto con lo stato attuale e ripristino.
+- Catalogo Homebrew con le app consigliate in evidenza.
+
 Versione 1.3.0 — 15/11/2026
 - Nuova app per Pixel Watch / Wear OS (TVPilot-orologio.apk): accendi/spegni, volume con la corona, muto, frecce e OK, indietro, Home, play/pausa, canali. I comandi passano dal telefono.
 

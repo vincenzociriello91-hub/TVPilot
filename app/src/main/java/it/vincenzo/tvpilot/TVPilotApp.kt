@@ -16,6 +16,8 @@ class TVPilotApp : Application() {
         Tv.init(this)
         Reports.init(this)
         Reports.log("Avvio app")
+        runCatching { it.vincenzo.tvpilot.quick.Schedules.scheduleAll(this) }
+        runCatching { it.vincenzo.tvpilot.quick.ShortcutActivity.updateRoutineShortcuts(this) }
 
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { t, e ->

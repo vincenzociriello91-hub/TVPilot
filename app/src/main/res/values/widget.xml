@@ -13,4 +13,7 @@
     </style>
     <string name="widget_desc">Accendi, spegni e regola il volume della TV</string>
     <string name="tile_label">TV</string>
+    <string name="sc_off">Spegni TV</string>
+    <string name="sc_on">Accendi TV</string>
+    <string name="sc_mute">Muto</string>
 </resources>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scorciatoie fisse: tenendo premuta l'icona di TVPilot -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="spegni"
+        android:shortcutShortLabel="@string/sc_off">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="it.vincenzo.tvpilot.quick.ShortcutActivity"
+            android:targetPackage="it.vincenzo.tvpilot">
+            <extra android:name="azione" android:value="POWER_OFF" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="accendi"
+        android:shortcutShortLabel="@string/sc_on">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="it.vincenzo.tvpilot.quick.ShortcutActivity"
+            android:targetPackage="it.vincenzo.tvpilot">
+            <extra android:name="azione" android:value="POWER_ON" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutId="muto"
+        android:shortcutShortLabel="@string/sc_mute">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="it.vincenzo.tvpilot.quick.ShortcutActivity"
+            android:targetPackage="it.vincenzo.tvpilot">
+            <extra android:name="azione" android:value="MUTE" />
+        </intent>
+    </shortcut>
+</shortcuts>
