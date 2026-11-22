@@ -29,6 +29,9 @@ L'app per orologio è sospesa: il codice resta nella cartella `wear/`, ma non vi
 GitHub Actions compila a ogni push su `main` e pubblica la Release firmata con la chiave in `firma/` (scelta voluta: repository tutto pubblico; i secret `KEYSTORE_B64`/`KEYSTORE_PASS`, se impostati, hanno la precedenza). Se la build fallisce, il registro errori va nel ramo `log-build`.
 
 ## Novità
+### 1.6.4 — 22/11/2026
+- Modifiche della Pulizia verificate davvero sulla TV anche quando passano dal servizio interno; rapporti più precisi sulle chiusure.
+
 ### 1.6.3 — 15/11/2026
 - Backup separati per ogni modifica della Pulizia, ripristino più sicuro, errori di installazione immediati, DLNA che si riprova da solo.
 

@@ -2,10 +2,12 @@ package it.vincenzo.tvpilot.tv
 
 import android.content.Context
 import it.vincenzo.tvpilot.core.Reports
+import kotlinx.coroutines.delay
 import org.json.JSONObject
 
 /** Modifica delle impostazioni della TV, sempre con backup prima di toccare qualcosa */
 object SettingsManager {
+    private const val LUNA = "servizio interno (luna)"
     data class Result(val ok: Boolean, val message: String, val backupPath: String?)
 
     /** Legge i valori attuali di una categoria: prima tutti insieme, se la TV rifiuta uno per uno */
@@ -44,15 +46,27 @@ object SettingsManager {
             return Result(false, "La TV non ha accettato la modifica: ${e.message}", path)
         }
         Backups.save(ctx, Backups.Backup(id, System.currentTimeMillis(), category, before, newValues, allRead, method, note, false))
-        val check = Tv.readSettings(category, keys)
-        val verified = check != null && keys.all { check.opt(it)?.toString() == newValues.opt(it)?.toString() }
+        // il servizio interno (luna) applica la modifica dopo la chiusura dell'avviso: si rilegge con qualche attesa
+        var check: JSONObject? = null
+        var verified = false
+        for (wait in if (method == LUNA) listOf(700L, 1300L) else listOf(0L)) {
+            delay(wait)
+            val read = Tv.readSettings(category, keys)
+            check = read
+            verified = read != null && keys.all { read.opt(it)?.toString() == newValues.opt(it)?.toString() }
+            if (verified) break
+        }
         val msg = buildString {
             append("Fatto con $method. ")
-            append(if (verified) "Verificato sulla TV. " else "La TV non permette di rileggere il valore: controlla sullo schermo. ")
+            append(when {
+                verified -> "Verificato sulla TV. "
+                check == null -> "La TV non permette di rileggere il valore: controlla sullo schermo. "
+                else -> "La TV risponde ancora con il valore vecchio: controlla sullo schermo o riprova. "
+            })
             if (!allRead) append("Alcuni valori precedenti non erano leggibili: il backup usa quelli tipici di fabbrica. ")
             append("Backup: $path")
         }
-        Reports.log("Modifica $category ${newValues.toString().take(200)} → $method, verificato=$verified")
+        Reports.log("Modifica $category ${newValues.toString().take(200)} → $method, verificato=$verified, riletto=${check?.toString()?.take(200) ?: "non leggibile"}")
         return Result(true, msg, path)
     }
 
@@ -64,7 +78,7 @@ object SettingsManager {
             "API pubblica"
         } catch (e: Exception) {
             Tv.client.luna("com.webos.settingsservice/setSystemSettings", payload)
-            "servizio interno (luna)"
+            LUNA
         }
     }
 

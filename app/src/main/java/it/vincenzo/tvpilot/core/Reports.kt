@@ -261,6 +261,11 @@ object Reports {
             .put("descrizione", exit.description ?: "")
             .put("ora", iso(exit.timestamp))
         else JSONObject().put("motivo", "sconosciuto")
-        save(build("chiusura-improvvisa", exit = info, withState = false), "chiusura-improvvisa")
+        // chiusure volute (arresto forzato, aggiornamento) non sono errori: motivo separato per non confonderle
+        val voluta = Build.VERSION.SDK_INT >= 30 && exit != null && exit.reason in setOf(
+            ApplicationExitInfo.REASON_USER_REQUESTED, ApplicationExitInfo.REASON_USER_STOPPED, 16,
+        )
+        val motivo = if (voluta) "chiusura-utente" else "chiusura-improvvisa"
+        save(build(motivo, exit = info, withState = false), motivo)
     }
 }

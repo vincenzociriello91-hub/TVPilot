@@ -1,3 +1,8 @@
+Versione 1.6.4 — 22/11/2026
+- Pulizia e Sviluppatore: quando la TV accetta la modifica solo tramite il servizio interno, l'app aspetta qualche istante e rilegge il valore un paio di volte, invece di dire subito "non verificato".
+- Messaggio più chiaro: distingue "la TV non permette di rileggere il valore" da "la TV risponde ancora con il valore vecchio".
+- Rapporti: un arresto forzato o un aggiornamento dell'app non vengono più segnalati come chiusura improvvisa.
+
 Versione 1.6.3 — 15/11/2026
 - Corretto: più modifiche fatte insieme (es. "Pulizia consigliata") sovrascrivevano a vicenda il backup e ne restava solo l'ultimo. Ora ogni modifica ha il suo backup.
 - Ogni modifica crea una sola copia del backup in Download (prima due).
